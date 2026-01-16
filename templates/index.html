@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}FM Stories - Football Manager Adventures{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold">FM Stories</h1>
+        <p class="lead">Following my Football Manager journey, one match at a time</p>
+    </div>
+</div>
+
+<!-- Articles List -->
+<div class="container">
+    <div class="row">
+        {% for article in articles %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card article-card h-100">
+                <div class="card-body">
+                    <p class="article-date mb-2">{{ format_date(article.date) }}</p>
+                    <h5 class="card-title">{{ article.title }}</h5>
+                </div>
+                <div class="card-footer bg-transparent border-0">
+                    <a href="{{ url_for('article', article_id=article.id) }}" class="btn btn-outline-primary">
+                        Read More &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

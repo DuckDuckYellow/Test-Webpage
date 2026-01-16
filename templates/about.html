@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}About - FM Stories{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="fw-bold mb-4">About This Blog</h1>
+
+            <div class="card">
+                <div class="card-body">
+                    <p class="lead">
+                        Welcome to FM Stories, where I document my Football Manager adventures!
+                    </p>
+
+                    <p>
+                        This blog follows my journey as a virtual football manager, chronicling the
+                        highs and lows of managing a club through the beautiful game. From nail-biting
+                        title deciders to frustrating transfer windows, every story is captured here.
+                    </p>
+
+                    <p>
+                        Whether you're a fellow FM addict or just curious about what makes this game
+                        so captivating, I hope you enjoy reading about my experiences.
+                    </p>
+
+                    <hr>
+
+                    <h5>The Current Save</h5>
+                    <p>
+                        I'm currently managing <strong>Wrexham AFC</strong>, taking them from the
+                        lower leagues to (hopefully) Premier League glory. Follow along as we make
+                        history!
+                    </p>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{{ url_for('home') }}" class="btn btn-primary">
+                    &larr; Back to Articles
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
