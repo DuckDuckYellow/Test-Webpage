@@ -31,24 +31,88 @@
             color: #ecf0f1 !important;
         }
 
+        /* Article cards on homepage */
         .article-card {
             transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
         .article-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
         }
 
+        .article-excerpt {
+            color: #555;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .article-meta {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .part-badge {
+            background-color: #667eea;
+            color: white;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        /* Article content typography */
         .article-content p {
-            font-size: 1.1rem;
-            line-height: 1.8;
-            margin-bottom: 1.5rem;
+            font-size: 1.125rem;
+            line-height: 1.9;
+            margin-bottom: 1.75rem;
+            color: #333;
+        }
+
+        .article-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-top: 2.5rem;
+            margin-bottom: 1rem;
+            color: #2c3e50;
         }
 
         .article-date {
             color: #6c757d;
             font-size: 0.9rem;
+        }
+
+        /* Article header metadata */
+        .article-header-meta {
+            color: #6c757d;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .article-header-meta span {
+            margin-right: 1.5rem;
+        }
+
+        /* Navigation buttons */
+        .article-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 1.5rem 0;
+        }
+
+        .article-nav .btn {
+            min-width: 140px;
+        }
+
+        .nav-spacer {
+            flex: 1;
         }
 
         footer {
@@ -63,6 +127,25 @@
             color: white;
             padding: 4rem 0;
             margin-bottom: 2rem;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 576px) {
+            .article-nav {
+                flex-direction: column;
+            }
+
+            .article-nav .btn {
+                width: 100%;
+            }
+
+            .nav-spacer {
+                display: none;
+            }
+
+            .article-content p {
+                font-size: 1rem;
+            }
         }
     </style>
 </head>

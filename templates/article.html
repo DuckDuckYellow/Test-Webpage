@@ -6,33 +6,79 @@
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
-            <!-- Back Button -->
-            <a href="{{ url_for('home') }}" class="btn btn-outline-secondary mb-4">
-                &larr; Back to Articles
-            </a>
+
+            <!-- Top Navigation -->
+            <nav class="article-nav border-bottom mb-4">
+                {% if prev_article %}
+                <a href="{{ url_for('article', article_id=prev_article.id) }}" class="btn btn-outline-secondary">
+                    &larr; Previous Part
+                </a>
+                {% else %}
+                <div class="nav-spacer"></div>
+                {% endif %}
+
+                <a href="{{ url_for('home') }}" class="btn btn-outline-primary">
+                    All Articles
+                </a>
+
+                {% if next_article %}
+                <a href="{{ url_for('article', article_id=next_article.id) }}" class="btn btn-outline-secondary">
+                    Next Part &rarr;
+                </a>
+                {% else %}
+                <div class="nav-spacer"></div>
+                {% endif %}
+            </nav>
 
             <!-- Article Header -->
             <article>
                 <header class="mb-4">
-                    <h1 class="fw-bold">{{ article.title }}</h1>
-                    <p class="article-date">Published on {{ format_date(article.date) }}</p>
+                    <h1 class="fw-bold mb-3">{{ article.title }}</h1>
+
+                    <!-- Article metadata -->
+                    <div class="article-header-meta">
+                        <span>Part {{ article.part }} of {{ total_parts }}</span>
+                        <span>{{ format_date(article.date) }}</span>
+                        <span>{{ reading_time }} min read</span>
+                    </div>
                 </header>
 
                 <!-- Article Content -->
                 <div class="article-content">
-                    {% for paragraph in paragraphs %}
-                    <p>{{ paragraph }}</p>
+                    {% for block in content_blocks %}
+                        {% if block.type == "heading" %}
+                            <h2>{{ block.content }}</h2>
+                        {% else %}
+                            <p>{{ block.content }}</p>
+                        {% endif %}
                     {% endfor %}
                 </div>
             </article>
 
-            <!-- Navigation -->
-            <hr class="my-5">
-            <div class="text-center">
-                <a href="{{ url_for('home') }}" class="btn btn-primary">
-                    &larr; Back to All Articles
+            <!-- Bottom Navigation -->
+            <hr class="my-4">
+            <nav class="article-nav">
+                {% if prev_article %}
+                <a href="{{ url_for('article', article_id=prev_article.id) }}" class="btn btn-outline-secondary">
+                    &larr; Previous Part
                 </a>
-            </div>
+                {% else %}
+                <div class="nav-spacer"></div>
+                {% endif %}
+
+                <a href="{{ url_for('home') }}" class="btn btn-primary">
+                    Back to All Articles
+                </a>
+
+                {% if next_article %}
+                <a href="{{ url_for('article', article_id=next_article.id) }}" class="btn btn-outline-secondary">
+                    Next Part &rarr;
+                </a>
+                {% else %}
+                <div class="nav-spacer"></div>
+                {% endif %}
+            </nav>
+
         </div>
     </div>
 </div>
