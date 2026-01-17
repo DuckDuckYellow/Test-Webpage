@@ -17,43 +17,43 @@ app = Flask(__name__)
 
 ARTICLES = [
     {
-        "id": "the-journey-begins",
-        "title": "The Journey Begins: Taking Over Morecambe FC",
+        "id": "part 1",
+        "title": "How did we fall so far?",
         "date": "2024-01-15",
         "filename": "article1.txt",
         "part": 1
     },
     {
-        "id": "first-season-struggles",
-        "title": "First Season Struggles: Fighting for Survival",
+        "id": "part 2",
+        "title": "The struggle is real, or is it?",
         "date": "2024-02-20",
         "filename": "article2.txt",
         "part": 2
     },
     {
-        "id": "transfer-window-rebuild",
-        "title": "Transfer Window Rebuild: Finding Hidden Gems",
+        "id": "part 3",
+        "title": "Crossing the line",
         "date": "2024-03-10",
         "filename": "article3.txt",
         "part": 3
     },
     {
-        "id": "turning-point",
-        "title": "The Turning Point: When Everything Clicked",
+        "id": "part 4",
+        "title": "Out with the old and in with the older",
         "date": "2024-04-05",
         "filename": "article4.txt",
         "part": 4
     },
     {
-        "id": "promotion-push",
-        "title": "Promotion Push: The Final Stretch",
+        "id": "part 5",
+        "title": "The Crucible",
         "date": "2024-05-12",
         "filename": "article5.txt",
         "part": 5
     },
     {
-        "id": "glory-day",
-        "title": "Glory Day: Championship Secured",
+        "id": "part 6",
+        "title": "Disaster and Triumph",
         "date": "2024-06-01",
         "filename": "article6.txt",
         "part": 6
