@@ -15,7 +15,7 @@ app = Flask(__name__)
 # Categories contain articles and metadata for display.
 # ============================================================
 
-BLOG_CATEGORIES = [
+BLOG_CATEGORIES = 
     {
         "id": "part 1",
         "title": "How did we fall so far?",
@@ -58,7 +58,7 @@ BLOG_CATEGORIES = [
         "filename": "article6.txt",
         "part": 6
     },
-]
+
 
 
 # ============================================================
