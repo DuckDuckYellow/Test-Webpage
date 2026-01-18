@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Blog - Newton's Repository{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero hero-sm">
+    <div class="container">
+        <h1 class="fw-bold mb-2">Blog</h1>
+        <p class="mb-0 opacity-75">Football Manager stories and adventures</p>
+    </div>
+</section>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Blog</li>
+        </ol>
+    </nav>
+
+    <h2 class="h4 mb-4">Categories</h2>
+
+    <div class="row g-4">
+        {% for category in categories %}
+        <div class="col-md-6 col-lg-4">
+            <a href="{{ url_for('blog_category', category_id=category.id) }}" class="text-decoration-none">
+                <div class="card category-card h-100">
+                    <div class="category-card-image">
+                        <img src="{{ url_for('static', filename='images/' + category.image) }}"
+                             alt="{{ category.name }}"
+                             onerror="this.parentElement.innerHTML='<span class=\'text-muted h4\'>FM</span>'">
+                    </div>
+                    <div class="card-body">
+                        <h3 class="h5 card-title text-dark mb-1">{{ category.name }}</h3>
+                        <p class="text-muted small mb-2">{{ category.subtitle }}</p>
+                        <p class="article-excerpt small mb-2">{{ category.description[:120] }}{% if category.description|length > 120 %}...{% endif %}</p>
+                        <span class="text-primary small">{{ category.article_count }} articles &rarr;</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+
+        <!-- Placeholder for future categories -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 project-card">
+                <div class="category-card-image placeholder-image">
+                    <span>More coming soon...</span>
+                </div>
+                <div class="card-body">
+                    <h3 class="h5 card-title text-muted mb-1">Future Saves</h3>
+                    <p class="text-muted small mb-0">
+                        More Football Manager adventures will be documented here as new saves begin.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

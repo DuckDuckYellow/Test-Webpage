@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Newton's Repository{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero hero-sm">
+    <div class="container">
+        <h1 class="fw-bold mb-2">{{ category.name }}</h1>
+        <p class="mb-0 opacity-75">{{ category.subtitle }}</p>
+    </div>
+</section>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('blog_home') }}">Blog</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ category.name }}, {{ category.subtitle }}</li>
+        </ol>
+    </nav>
+
+    <!-- Category Description -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <p class="lead text-muted">{{ category.description }}</p>
+        </div>
+    </div>
+
+    <!-- Articles List -->
+    <h2 class="h5 text-muted mb-4">{{ total_parts }} Parts</h2>
+
+    <div class="row g-4">
+        {% for article in articles %}
+        <div class="col-12">
+            <div class="card article-card article-card-horizontal">
+                <div class="article-card-image-wrapper">
+                    <img src="{{ url_for('static', filename='images/' + category.image) }}"
+                         alt="{{ category.name }}"
+                         onerror="this.parentElement.innerHTML='<span class=\'text-muted\'>FM</span>'">
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <div class="mb-2">
+                        <span class="part-badge part-badge-morecambe">Part {{ article.part }} of {{ total_parts }}</span>
+                    </div>
+                    <h3 class="h5 card-title mb-2">
+                        <a href="{{ url_for('article', category_id=category.id, article_id=article.id) }}"
+                           class="text-decoration-none text-dark">
+                            {{ article.title }}
+                        </a>
+                    </h3>
+                    <p class="article-excerpt mb-3 flex-grow-1">{{ article.excerpt }}</p>
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <span class="article-meta">
+                            {{ format_date(article.date) }} &bull; {{ article.reading_time }} min read
+                        </span>
+                        <a href="{{ url_for('article', category_id=category.id, article_id=article.id) }}"
+                           class="btn btn-outline-primary btn-sm">
+                            Read Article &rarr;
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Back to Blog -->
+    <div class="mt-5 pt-3 border-top">
+        <a href="{{ url_for('blog_home') }}" class="btn btn-outline-secondary">
+            &larr; Back to All Categories
+        </a>
+    </div>
+</div>
+{% endblock %}

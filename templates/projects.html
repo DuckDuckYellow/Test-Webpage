@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Newton's Repository{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero hero-sm">
+    <div class="container">
+        <h1 class="fw-bold mb-2">Personal Projects</h1>
+        <p class="mb-0 opacity-75">Coding projects and useful tools</p>
+    </div>
+</section>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Projects</li>
+        </ol>
+    </nav>
+
+    <!-- Coming Soon Message -->
+    <div class="row justify-content-center mb-5">
+        <div class="col-lg-8 text-center">
+            <div class="card project-card p-5">
+                <div class="card-body">
+                    <h2 class="h3 mb-3 text-muted">Coming Soon</h2>
+                    <p class="lead text-muted mb-4">
+                        This section will showcase various coding projects and useful tools.
+                        Check back soon!
+                    </p>
+                    <p class="text-muted">
+                        I'm working on a collection of practical tools and experiments,
+                        from meal planning utilities to Football Manager analytics.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planned Projects -->
+    <h2 class="h4 mb-4 text-muted">Planned Projects</h2>
+
+    <div class="row g-4">
+        {% for project in projects %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card project-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                        <h3 class="h5 card-title mb-0 text-muted">{{ project.name }}</h3>
+                        <span class="project-badge">{{ project.status }}</span>
+                    </div>
+                    <p class="text-muted small mb-0">{{ project.description }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Placeholder for more projects -->
+        <div class="col-md-6 col-lg-4">
+            <div class="card project-card h-100">
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <p class="text-muted mb-0 text-center">
+                        <span class="d-block h4 mb-2">+</span>
+                        More projects coming...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Back to Home -->
+    <div class="mt-5 pt-3 border-top">
+        <a href="{{ url_for('home') }}" class="btn btn-outline-secondary">
+            &larr; Back to Home
+        </a>
+    </div>
+</div>
+{% endblock %}

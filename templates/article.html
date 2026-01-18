@@ -1,84 +1,98 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title }} - FM Stories{% endblock %}
+{% block title %}{{ article.title }} - Newton's Repository{% endblock %}
 
 {% block content %}
 <div class="container py-5">
     <div class="row justify-content-center">
         <div class="col-lg-8">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('home') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('blog_home') }}">Blog</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('blog_category', category_id=category.id) }}">{{ category.name }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Part {{ article.part }}</li>
+                </ol>
+            </nav>
+
+            <!-- Article Header -->
+            <header class="mb-4">
+                <div class="mb-3">
+                    <span class="part-badge part-badge-morecambe">Part {{ article.part }} of {{ total_parts }}</span>
+                    <span class="ms-2 text-muted">{{ category.name }} - {{ category.subtitle }}</span>
+                </div>
+                <h1 class="fw-bold mb-3">{{ article.title }}</h1>
+                <div class="article-header-meta">
+                    <span>{{ format_date(article.date) }}</span>
+                    <span>{{ reading_time }} min read</span>
+                </div>
+            </header>
 
             <!-- Top Navigation -->
             <nav class="article-nav border-bottom mb-4">
                 {% if prev_article %}
-                <a href="{{ url_for('article', article_id=prev_article.id) }}" class="btn btn-outline-secondary">
-                    &larr; Previous Part
+                <a href="{{ url_for('article', category_id=category.id, article_id=prev_article.id) }}"
+                   class="btn btn-outline-secondary btn-sm">
+                    &larr; Part {{ prev_article.part }}
                 </a>
                 {% else %}
-                <div class="nav-spacer"></div>
+                <span></span>
                 {% endif %}
 
-                <a href="{{ url_for('home') }}" class="btn btn-outline-primary">
-                    All Articles
+                <a href="{{ url_for('blog_category', category_id=category.id) }}"
+                   class="btn btn-outline-primary btn-sm">
+                    All Parts
                 </a>
 
                 {% if next_article %}
-                <a href="{{ url_for('article', article_id=next_article.id) }}" class="btn btn-outline-secondary">
-                    Next Part &rarr;
+                <a href="{{ url_for('article', category_id=category.id, article_id=next_article.id) }}"
+                   class="btn btn-outline-secondary btn-sm">
+                    Part {{ next_article.part }} &rarr;
                 </a>
                 {% else %}
-                <div class="nav-spacer"></div>
+                <span></span>
                 {% endif %}
             </nav>
 
-            <!-- Article Header -->
-            <article>
-                <header class="mb-4">
-                    <h1 class="fw-bold mb-3">{{ article.title }}</h1>
-
-                    <!-- Article metadata -->
-                    <div class="article-header-meta">
-                        <span>Part {{ article.part }} of {{ total_parts }}</span>
-                        <span>{{ format_date(article.date) }}</span>
-                        <span>{{ reading_time }} min read</span>
-                    </div>
-                </header>
-
-                <!-- Article Content -->
-                <div class="article-content">
-                    {% for block in content_blocks %}
-                        {% if block.type == "heading" %}
-                            <h2>{{ block.content }}</h2>
-                        {% else %}
-                            <p>{{ block.content }}</p>
-                        {% endif %}
-                    {% endfor %}
-                </div>
+            <!-- Article Content -->
+            <article class="article-content">
+                {% for block in content_blocks %}
+                    {% if block.type == "heading" %}
+                        <h2>{{ block.content }}</h2>
+                    {% else %}
+                        <p>{{ block.content }}</p>
+                    {% endif %}
+                {% endfor %}
             </article>
 
             <!-- Bottom Navigation -->
-            <hr class="my-4">
-            <nav class="article-nav">
+            <nav class="article-nav border-top mt-4 pt-4">
                 {% if prev_article %}
-                <a href="{{ url_for('article', article_id=prev_article.id) }}" class="btn btn-outline-secondary">
-                    &larr; Previous Part
+                <a href="{{ url_for('article', category_id=category.id, article_id=prev_article.id) }}"
+                   class="btn btn-outline-secondary">
+                    <small class="d-block text-muted">Previous</small>
+                    &larr; Part {{ prev_article.part }}
                 </a>
                 {% else %}
                 <div class="nav-spacer"></div>
                 {% endif %}
 
-                <a href="{{ url_for('home') }}" class="btn btn-primary">
-                    Back to All Articles
+                <a href="{{ url_for('blog_category', category_id=category.id) }}"
+                   class="btn btn-primary">
+                    Back to {{ category.name }}
                 </a>
 
                 {% if next_article %}
-                <a href="{{ url_for('article', article_id=next_article.id) }}" class="btn btn-outline-secondary">
-                    Next Part &rarr;
+                <a href="{{ url_for('article', category_id=category.id, article_id=next_article.id) }}"
+                   class="btn btn-outline-secondary">
+                    <small class="d-block text-muted">Next</small>
+                    Part {{ next_article.part }} &rarr;
                 </a>
                 {% else %}
                 <div class="nav-spacer"></div>
                 {% endif %}
             </nav>
-
         </div>
     </div>
 </div>
