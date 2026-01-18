@@ -15,78 +15,48 @@ app = Flask(__name__)
 # Categories contain articles and metadata for display.
 # ============================================================
 
-BLOG_CATEGORIES = {
-    "morecambe-fm26": {
-        "id": "morecambe-fm26",
-        "name": "Morecambe FC",
-        "subtitle": "FM26 Save",
-        "description": "Following Morecambe FC from administration to glory. A detailed narrative of tactical decisions, transfer gambles, and the emotional rollercoaster of lower-league management.",
-        "image": "morecambe-logo.png",
-        "articles": [
-            {
-                "id": "the-journey-begins",
-                "title": "The Journey Begins: Taking Over Morecambe FC",
-                "date": "2024-01-15",
-                "filename": "article1.txt",
-                "part": 1
-            },
-            {
-                "id": "first-season-struggles",
-                "title": "First Season Struggles: Fighting for Survival",
-                "date": "2024-02-20",
-                "filename": "article2.txt",
-                "part": 2
-            },
-            {
-                "id": "transfer-window-rebuild",
-                "title": "Transfer Window Rebuild: Finding Hidden Gems",
-                "date": "2024-03-10",
-                "filename": "article3.txt",
-                "part": 3
-            },
-            {
-                "id": "turning-point",
-                "title": "The Turning Point: When Everything Clicked",
-                "date": "2024-04-05",
-                "filename": "article4.txt",
-                "part": 4
-            },
-            {
-                "id": "promotion-push",
-                "title": "Promotion Push: The Final Stretch",
-                "date": "2024-05-12",
-                "filename": "article5.txt",
-                "part": 5
-            },
-            {
-                "id": "glory-day",
-                "title": "Glory Day: Championship Secured",
-                "date": "2024-06-01",
-                "filename": "article6.txt",
-                "part": 6
-            },
-        ]
-    }
-}
-
-# ============================================================
-# PROJECTS DATA
-# ============================================================
-# Placeholder for future projects
-# ============================================================
-
-PROJECTS = [
+ARTICLES = [
     {
-        "id": "meal-generator",
-        "name": "Meal Generator",
-        "description": "A tool to help plan weekly meals and generate shopping lists.",
-        "status": "planned"
+        "id": "part 1",
+        "title": "How did we fall so far?",
+        "date": "2024-01-15",
+        "filename": "article1.txt",
+        "part": 1
     },
     {
-        "id": "fm-tools",
-        "name": "FM Analytics Tools",
-        "description": "Utilities for analyzing Football Manager save data.",
-        "status": "planned"
+        "id": "part 2",
+        "title": "The struggle is real, or is it?",
+        "date": "2024-02-20",
+        "filename": "article2.txt",
+        "part": 2
+    },
+    {
+        "id": "part 3",
+        "title": "Crossing the line",
+        "date": "2024-03-10",
+        "filename": "article3.txt",
+        "part": 3
+    },
+    {
+        "id": "part 4",
+        "title": "Out with the old and in with the older",
+        "date": "2024-04-05",
+        "filename": "article4.txt",
+        "part": 4
+    },
+    {
+        "id": "part 5",
+        "title": "The Crucible",
+        "date": "2024-05-12",
+        "filename": "article5.txt",
+        "part": 5
+    },
+    {
+        "id": "part 6",
+        "title": "Disaster and Triumph",
+        "date": "2024-06-01",
+        "filename": "article6.txt",
+        "part": 6
     },
 ]
 

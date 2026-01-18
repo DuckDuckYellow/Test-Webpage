@@ -1,29 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Newton's Repository - Projects, Stories & Experiments{% endblock %}
+{% block title %}Newton's Repository{% endblock %}
 
 {% block content %}
 <!-- Hero Section -->
 <section class="hero hero-home">
     <div class="container">
-        <div class="row justify-content-center text-center">
-            <div class="col-lg-8">
-                <h1 class="display-4 fw-bold mb-3">Newton's Repository</h1>
-                <p class="lead mb-4">A collection of projects, stories, and experiments</p>
-                <p class="mb-4 opacity-75">
-                    Welcome! This is my corner of the internet where I document Football Manager adventures,
-                    build useful tools, and share what I'm learning along the way.
-                </p>
-                <div class="d-flex gap-3 justify-content-center flex-wrap">
-                    <a href="{{ url_for('blog_home') }}" class="btn btn-light btn-lg px-4">
-                        Read the Blog
-                    </a>
-                    <a href="{{ url_for('projects') }}" class="btn btn-outline-light btn-lg px-4">
-                        View Projects
-                    </a>
-                </div>
-            </div>
-        </div>
+        <h1 class="display-4 fw-bold">FM Stories</h1>
+        <p class="lead">A place for me to store my projects and ideas</p>
     </div>
 </section>
 

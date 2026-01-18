@@ -1,40 +1,6 @@
 # FM Stories - Development TODO
 
-*Last updated: January 17, 2026*
-
----
-
-## Immediate Priorities (Next Session)
-
-Pre-deployment checklist:
-
-- [ ] Test all navigation links (home, about, prev/next, back to articles)
-- [ ] Verify mobile responsiveness on actual phone
-- [ ] Proofread all 6 articles for typos
-- [ ] Test 404 page by visiting invalid URLs
-- [ ] Check reading time accuracy on a few articles
-- [ ] Verify excerpts display correctly (no cut-off mid-word)
-- [ ] Test on different browsers (Chrome, Firefox, Safari)
-
----
-
-## Deployment Tasks (Session 3)
-
-Getting the site live on the internet:
-
-- [ ] Research hosting platforms:
-  - PythonAnywhere (free tier, good for Flask)
-  - Render (free tier, auto-deploy from GitHub)
-  - Heroku (paid now, but familiar)
-  - Railway (simple, free tier available)
-- [ ] Choose hosting platform
-- [ ] Create hosting account
-- [ ] Configure deployment settings
-- [ ] Deploy and test live site
-- [ ] Set up SSL certificate (HTTPS) - usually automatic on modern hosts
-- [ ] Test all functionality on live site
-
----
+*Last updated: January 18, 2026*
 
 ## Custom Domain Setup (Session 4)
 
