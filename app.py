@@ -1,7 +1,7 @@
 """
 Newton's Repository - A collection of projects, stories, and experiments
 """
-from flask import Flask, render_template, abort, url_for
+from flask import Flask, render_template, abort, url_for, redirect
 from datetime import datetime
 import os
 import re
@@ -324,9 +324,6 @@ def page_not_found(e):
     """Custom 404 page."""
     return render_template("404.html"), 404
 
-
-# Import redirect for legacy route
-from flask import redirect
 
 if __name__ == "__main__":
     app.run(debug=True)
