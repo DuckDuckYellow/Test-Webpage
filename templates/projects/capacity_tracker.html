@@ -7,7 +7,7 @@
 <section class="hero hero-sm">
     <div class="container">
         <h1 class="fw-bold mb-2">Recruitment Capacity Tracker</h1>
-        <p class="mb-0 opacity-75">Calculate team capacity across different recruitment workload types</p>
+        <p class="mb-0 opacity-75">Calculate team capacity with advanced workload analysis</p>
     </div>
 </section>
 
@@ -23,22 +23,33 @@
 
     <!-- Tool Description -->
     <div class="row mb-5">
-        <div class="col-lg-10">
+        <div class="col-lg-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-body p-4">
                     <h2 class="h5 mb-3">About This Tool</h2>
                     <p class="mb-2">
-                        This tool helps calculate recruitment team capacity based on the complexity of vacancies.
-                        Each recruiter has different capacity limits depending on vacancy difficulty:
+                        This enhanced tool calculates recruitment team capacity with advanced business logic including internal role discounts and stage-based time weighting.
                     </p>
-                    <ul class="mb-2">
-                        <li><strong>Easy vacancies:</strong> Maximum 30 at full capacity</li>
-                        <li><strong>Medium vacancies:</strong> Maximum 20 at full capacity</li>
-                        <li><strong>Hard vacancies:</strong> Maximum 12 at full capacity</li>
-                    </ul>
-                    <p class="mb-0 text-muted small">
-                        Mixed workloads combine cumulatively (e.g., 15 easy + 10 medium + 6 hard = 50% + 50% + 50% = 150% capacity - overloaded).
-                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">Base Capacity Rules:</h6>
+                            <ul class="small mb-3">
+                                <li><strong>Easy:</strong> Max 30 at full capacity (3.33% each)</li>
+                                <li><strong>Medium:</strong> Max 20 at full capacity (5% each)</li>
+                                <li><strong>Hard:</strong> Max 12 at full capacity (8.33% each)</li>
+                                <li><strong>Internal roles:</strong> 75% less time (0.25 multiplier)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">Stage-Based Time Weighting:</h6>
+                            <ul class="small mb-3">
+                                <li>Sourcing: 20% | Screening: 40%</li>
+                                <li>Interview: 20% | Offer: 10%</li>
+                                <li>Pre-Hire Checks: 10%</li>
+                                <li>No stage specified: 100%</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -46,70 +57,149 @@
 
     <!-- Error Messages -->
     {% if errors %}
-    <div class="alert alert-danger" role="alert">
-        <strong>Please correct the following errors:</strong>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <strong><i class="bi bi-exclamation-triangle-fill"></i> Please correct the following errors:</strong>
         <ul class="mb-0 mt-2">
             {% for error in errors %}
             <li>{{ error }}</li>
             {% endfor %}
         </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
     {% endif %}
 
-    <!-- Input Form -->
+    <!-- Input Method Tabs -->
     <div class="row mb-5">
-        <div class="col-lg-10">
+        <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-bottom">
-                    <h3 class="h5 mb-0 py-2">Add Recruiters</h3>
+                    <ul class="nav nav-tabs card-header-tabs" id="inputMethodTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="excel-tab" data-bs-toggle="tab" data-bs-target="#excel-upload" type="button" role="tab" aria-controls="excel-upload" aria-selected="true">
+                                <i class="bi bi-file-earmark-excel"></i> Excel Upload
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual-input" type="button" role="tab" aria-controls="manual-input" aria-selected="false">
+                                <i class="bi bi-pencil-square"></i> Manual Input
+                            </button>
+                        </li>
+                    </ul>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" id="capacityForm">
-                        <div id="recruiterInputs">
-                            <!-- Initial recruiter input row -->
-                            <div class="recruiter-row mb-4 pb-4 border-bottom" data-index="0">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">Recruiter Name *</label>
-                                        <input type="text" class="form-control" name="name_0" required
-                                               placeholder="e.g., John Smith">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label fw-semibold">Easy</label>
-                                        <input type="number" class="form-control" name="easy_0"
-                                               min="0" value="0" placeholder="0">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label fw-semibold">Medium</label>
-                                        <input type="number" class="form-control" name="medium_0"
-                                               min="0" value="0" placeholder="0">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label fw-semibold">Hard</label>
-                                        <input type="number" class="form-control" name="hard_0"
-                                               min="0" value="0" placeholder="0">
+                    <div class="tab-content" id="inputMethodTabContent">
+                        <!-- Excel Upload Tab -->
+                        <div class="tab-pane fade show active" id="excel-upload" role="tabpanel" aria-labelledby="excel-tab">
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <h5 class="mb-3">Upload Excel File</h5>
+                                    <p class="text-muted mb-3">
+                                        Upload an Excel file with your team's vacancy data. Download our template to see the required format.
+                                    </p>
+
+                                    <form method="POST" enctype="multipart/form-data" id="excelUploadForm">
+                                        <div class="mb-4">
+                                            <label for="excelFile" class="form-label fw-semibold">Choose Excel File (.xlsx or .xls)</label>
+                                            <input type="file" class="form-control" id="excelFile" name="excel_file" accept=".xlsx,.xls" required>
+                                            <div class="form-text">Maximum file size: 10MB</div>
+                                        </div>
+
+                                        <div class="d-grid gap-2 d-md-flex">
+                                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                                <i class="bi bi-upload"></i> Upload & Calculate
+                                            </button>
+                                            <a href="{{ url_for('download_capacity_template') }}" class="btn btn-outline-secondary btn-lg">
+                                                <i class="bi bi-download"></i> Download Template
+                                            </a>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="bg-light p-3 rounded">
+                                        <h6 class="fw-semibold mb-2">Required Columns:</h6>
+                                        <ol class="small mb-0">
+                                            <li>Vacancy Name</li>
+                                            <li>Recruiter Name</li>
+                                            <li>Role Type (Easy/Medium/Hard)</li>
+                                            <li>Internal? (Yes/No)</li>
+                                            <li>Stage (or blank)</li>
+                                        </ol>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Add Recruiter Button -->
-                        <div class="mb-4">
-                            <button type="button" class="btn btn-outline-primary" id="addRecruiterBtn">
-                                + Add Another Recruiter
-                            </button>
-                        </div>
+                        <!-- Manual Input Tab -->
+                        <div class="tab-pane fade" id="manual-input" role="tabpanel" aria-labelledby="manual-tab">
+                            <h5 class="mb-3">Manual Entry</h5>
+                            <p class="text-muted mb-4">
+                                Add individual vacancies with detailed information. Click "Add Another Vacancy" to build your team's workload.
+                            </p>
 
-                        <!-- Submit Button -->
-                        <div class="d-grid gap-2 d-md-flex">
-                            <button type="submit" class="btn btn-primary btn-lg px-5">
-                                Calculate Capacity
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary btn-lg" id="resetBtn">
-                                Reset Form
-                            </button>
+                            <form method="POST" id="manualInputForm">
+                                <div id="vacancyInputs">
+                                    <!-- Initial vacancy input row -->
+                                    <div class="vacancy-row mb-4 pb-4 border-bottom" data-index="0">
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <label class="form-label fw-semibold">Recruiter Name *</label>
+                                                <input type="text" class="form-control" name="recruiter_0" required
+                                                       placeholder="e.g., John Smith">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label fw-semibold">Vacancy Name</label>
+                                                <input type="text" class="form-control" name="vacancy_name_0"
+                                                       placeholder="e.g., Senior Developer">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label fw-semibold">Role Type *</label>
+                                                <select class="form-select" name="role_type_0" required>
+                                                    <option value="easy">Easy</option>
+                                                    <option value="medium">Medium</option>
+                                                    <option value="hard">Hard</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label fw-semibold">Internal? *</label>
+                                                <select class="form-select" name="internal_0">
+                                                    <option value="no">No</option>
+                                                    <option value="yes">Yes</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label fw-semibold">Stage</label>
+                                                <select class="form-select" name="stage_0">
+                                                    <option value="">None</option>
+                                                    <option value="sourcing">Sourcing</option>
+                                                    <option value="screening">Screening</option>
+                                                    <option value="interview">Interview</option>
+                                                    <option value="offer">Offer</option>
+                                                    <option value="pre-hire checks">Pre-Hire Checks</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Add Vacancy Button -->
+                                <div class="mb-4">
+                                    <button type="button" class="btn btn-outline-primary" id="addVacancyBtn">
+                                        <i class="bi bi-plus-circle"></i> Add Another Vacancy
+                                    </button>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="d-grid gap-2 d-md-flex">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                                        <i class="bi bi-calculator"></i> Calculate Capacity
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-lg" id="resetBtn">
+                                        <i class="bi bi-arrow-counterclockwise"></i> Reset Form
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -120,42 +210,97 @@
     <div class="row mb-5">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h3 class="h5 mb-0 py-2">Capacity Results</h3>
+                <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center">
+                    <h3 class="h5 mb-0 py-2">
+                        <i class="bi bi-graph-up"></i> Capacity Results
+                        {% if input_method == 'excel' %}
+                        <span class="badge bg-primary ms-2">Excel Upload</span>
+                        {% elif input_method == 'manual' %}
+                        <span class="badge bg-success ms-2">Manual Entry</span>
+                        {% endif %}
+                    </h3>
                 </div>
                 <div class="card-body p-0">
-                    <!-- Mobile-friendly table -->
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th scope="col">Recruiter</th>
-                                    <th scope="col" class="text-center">Easy</th>
-                                    <th scope="col" class="text-center">Medium</th>
-                                    <th scope="col" class="text-center">Hard</th>
-                                    <th scope="col" class="text-center">Capacity</th>
-                                    <th scope="col" class="text-center">Status</th>
-                                    <th scope="col">Remaining Capacity</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for recruiter in recruiters %}
-                                <tr>
-                                    <td class="fw-semibold">{{ recruiter.name }}</td>
-                                    <td class="text-center">{{ recruiter.easy_vacancies }}</td>
-                                    <td class="text-center">{{ recruiter.medium_vacancies }}</td>
-                                    <td class="text-center">{{ recruiter.hard_vacancies }}</td>
-                                    <td class="text-center fw-bold">{{ recruiter.capacity_percentage }}%</td>
-                                    <td class="text-center">
-                                        <span class="badge capacity-badge capacity-{{ recruiter.status }}">
-                                            {{ recruiter.status_text }}
-                                        </span>
-                                    </td>
-                                    <td class="small">{{ recruiter.remaining_message }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <!-- Recruiters List -->
+                    <div class="accordion accordion-flush" id="recruitersAccordion">
+                        {% for recruiter in recruiters %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}"
+                                        aria-expanded="{% if loop.first %}true{% else %}false{% endif %}"
+                                        aria-controls="collapse{{ loop.index }}">
+                                    <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                        <div>
+                                            <strong>{{ recruiter.name }}</strong>
+                                            <span class="badge capacity-badge capacity-{{ recruiter.status }} ms-2">
+                                                {{ recruiter.status_text }}
+                                            </span>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="h5 mb-0 fw-bold">{{ recruiter.capacity_percentage }}%</span>
+                                            <span class="text-muted ms-2 small">
+                                                ({{ recruiter.vacancies|length }} {% if recruiter.vacancies|length == 1 %}vacancy{% else %}vacancies{% endif %})
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}"
+                                 aria-labelledby="heading{{ loop.index }}" data-bs-parent="#recruitersAccordion">
+                                <div class="accordion-body">
+                                    <!-- Vacancy Details Table -->
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Vacancy</th>
+                                                    <th class="text-center">Type</th>
+                                                    <th class="text-center">Internal?</th>
+                                                    <th class="text-center">Stage</th>
+                                                    <th class="text-end">Capacity</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for vacancy in recruiter.vacancies %}
+                                                <tr>
+                                                    <td>{{ vacancy.name }}</td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-secondary">{{ vacancy.role_type }}</span>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        {% if vacancy.is_internal %}
+                                                        <span class="badge bg-info">Yes</span>
+                                                        {% else %}
+                                                        <span class="badge bg-light text-dark">No</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="text-center small">
+                                                        {% if vacancy.stage and vacancy.stage != 'None' %}
+                                                        {{ vacancy.stage|capitalize }}
+                                                        {% else %}
+                                                        <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="text-end fw-semibold">{{ vacancy.capacity_percentage }}%</td>
+                                                </tr>
+                                                {% endfor %}
+                                                <tr class="table-active">
+                                                    <td colspan="4" class="text-end fw-bold">Total Capacity:</td>
+                                                    <td class="text-end fw-bold">{{ recruiter.capacity_percentage }}%</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <!-- Remaining Capacity -->
+                                    <div class="alert alert-{{ 'danger' if recruiter.capacity_used > 1.0 else 'info' }} mb-0">
+                                        <small><i class="bi bi-info-circle"></i> {{ recruiter.remaining_message }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -165,10 +310,10 @@
     <!-- Team Summary -->
     {% if team_summary %}
     <div class="row mb-5">
-        <div class="col-lg-10">
+        <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-bottom">
-                    <h3 class="h5 mb-0 py-2">Team Summary</h3>
+                    <h3 class="h5 mb-0 py-2"><i class="bi bi-people-fill"></i> Team Summary</h3>
                 </div>
                 <div class="card-body p-4">
                     <div class="row g-4 text-center">
@@ -188,10 +333,10 @@
                             <div class="p-3 rounded team-health-{{ team_summary.team_health }}">
                                 <div class="h5 mb-1 fw-bold">{{ team_summary.team_health_text }}</div>
                                 <div class="small">
-                                    Available: {{ team_summary.status_counts.available }} |
-                                    Near Capacity: {{ team_summary.status_counts['near-capacity'] }} |
-                                    At Capacity: {{ team_summary.status_counts['at-capacity'] }} |
-                                    Overloaded: {{ team_summary.status_counts.overloaded }}
+                                    <span class="badge bg-success me-1">{{ team_summary.status_counts.available }}</span> Available |
+                                    <span class="badge bg-warning text-dark me-1">{{ team_summary.status_counts['near-capacity'] }}</span> Near Capacity |
+                                    <span class="badge bg-danger me-1">{{ team_summary.status_counts['at-capacity'] }}</span> At Capacity |
+                                    <span class="badge bg-dark">{{ team_summary.status_counts.overloaded }}</span> Overloaded
                                 </div>
                             </div>
                         </div>
@@ -206,7 +351,7 @@
     <!-- Back to Projects -->
     <div class="mt-5 pt-3 border-top">
         <a href="{{ url_for('projects') }}" class="btn btn-outline-secondary">
-            &larr; Back to Projects
+            <i class="bi bi-arrow-left"></i> Back to Projects
         </a>
     </div>
 </div>
@@ -265,21 +410,17 @@
     }
 
     /* Form styling */
-    .recruiter-row:last-child {
+    .vacancy-row:last-child {
         border-bottom: none !important;
     }
 
-    .form-label {
-        margin-bottom: 0.5rem;
-        color: #495057;
+    /* Accordion enhancements */
+    .accordion-button:not(.collapsed) {
+        background-color: #f8f9fa;
     }
 
-    /* Responsive table */
+    /* Responsive */
     @media (max-width: 768px) {
-        .table-responsive {
-            font-size: 0.9rem;
-        }
-
         .capacity-badge {
             font-size: 0.75rem;
             min-width: 80px;
@@ -290,50 +431,66 @@
 
 <!-- JavaScript for Dynamic Form -->
 <script>
-    let recruiterCount = 1;
+    let vacancyCount = 1;
 
-    // Add new recruiter row
-    document.getElementById('addRecruiterBtn').addEventListener('click', function() {
-        const container = document.getElementById('recruiterInputs');
+    // Add new vacancy row
+    document.getElementById('addVacancyBtn').addEventListener('click', function() {
+        const container = document.getElementById('vacancyInputs');
         const newRow = document.createElement('div');
-        newRow.className = 'recruiter-row mb-4 pb-4 border-bottom';
-        newRow.setAttribute('data-index', recruiterCount);
+        newRow.className = 'vacancy-row mb-4 pb-4 border-bottom';
+        newRow.setAttribute('data-index', vacancyCount);
 
         newRow.innerHTML = `
             <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label class="form-label fw-semibold">Recruiter Name *</label>
-                    <input type="text" class="form-control" name="name_${recruiterCount}" required
-                           placeholder="e.g., Jane Doe">
+                    <input type="text" class="form-control" name="recruiter_${vacancyCount}" required
+                           placeholder="e.g., John Smith">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Vacancy Name</label>
+                    <input type="text" class="form-control" name="vacancy_name_${vacancyCount}"
+                           placeholder="e.g., Marketing Lead">
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold">Easy</label>
-                    <input type="number" class="form-control" name="easy_${recruiterCount}"
-                           min="0" value="0" placeholder="0">
+                    <label class="form-label fw-semibold">Role Type *</label>
+                    <select class="form-select" name="role_type_${vacancyCount}" required>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold">Medium</label>
-                    <input type="number" class="form-control" name="medium_${recruiterCount}"
-                           min="0" value="0" placeholder="0">
+                    <label class="form-label fw-semibold">Internal? *</label>
+                    <select class="form-select" name="internal_${vacancyCount}">
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-semibold">Hard</label>
-                    <input type="number" class="form-control" name="hard_${recruiterCount}"
-                           min="0" value="0" placeholder="0">
+                    <label class="form-label fw-semibold">Stage</label>
+                    <select class="form-select" name="stage_${vacancyCount}">
+                        <option value="">None</option>
+                        <option value="sourcing">Sourcing</option>
+                        <option value="screening">Screening</option>
+                        <option value="interview">Interview</option>
+                        <option value="offer">Offer</option>
+                        <option value="pre-hire checks">Pre-Hire Checks</option>
+                    </select>
                 </div>
             </div>
             <div class="mt-2">
-                <button type="button" class="btn btn-sm btn-outline-danger remove-recruiter-btn">
-                    Remove
+                <button type="button" class="btn btn-sm btn-outline-danger remove-vacancy-btn">
+                    <i class="bi bi-trash"></i> Remove
                 </button>
             </div>
         `;
 
         container.appendChild(newRow);
-        recruiterCount++;
+        vacancyCount++;
 
         // Add event listener to remove button
-        newRow.querySelector('.remove-recruiter-btn').addEventListener('click', function() {
+        newRow.querySelector('.remove-vacancy-btn').addEventListener('click', function() {
             newRow.remove();
         });
     });
@@ -346,8 +503,8 @@
     });
 
     // Form validation
-    document.getElementById('capacityForm').addEventListener('submit', function(e) {
-        const inputs = document.querySelectorAll('input[type="text"][name^="name_"]');
+    document.getElementById('manualInputForm').addEventListener('submit', function(e) {
+        const inputs = document.querySelectorAll('input[type="text"][name^="recruiter_"]');
         let hasValidInput = false;
 
         inputs.forEach(function(input) {
@@ -358,7 +515,16 @@
 
         if (!hasValidInput) {
             e.preventDefault();
-            alert('Please add at least one recruiter with a name.');
+            alert('Please add at least one vacancy with a recruiter name.');
+        }
+    });
+
+    // File upload validation
+    document.getElementById('excelUploadForm')?.addEventListener('submit', function(e) {
+        const fileInput = document.getElementById('excelFile');
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Please select an Excel file to upload.');
         }
     });
 </script>

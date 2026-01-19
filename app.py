@@ -107,6 +107,141 @@ def get_latest_article():
 
 # ========== RECRUITMENT CAPACITY TRACKER FUNCTIONS ==========
 
+# Stage-based time weighting multipliers
+STAGE_MULTIPLIERS = {
+    'sourcing': 0.2,
+    'screening': 0.4,
+    'interview': 0.2,
+    'offer': 0.1,
+    'pre-hire checks': 0.1,
+    '': 1.0,  # No stage specified = full time
+    'none': 1.0
+}
+
+# Base capacity values
+BASE_CAPACITY = {
+    'easy': 1/30,      # 3.33% per vacancy
+    'medium': 1/20,    # 5% per vacancy
+    'hard': 1/12       # 8.33% per vacancy
+}
+
+def calculate_vacancy_capacity(role_type, is_internal=False, stage=''):
+    """
+    Calculate capacity usage for a single vacancy with enhanced business logic.
+
+    Business rules:
+    - Easy: 1/30 = 3.33% base capacity
+    - Medium: 1/20 = 5% base capacity
+    - Hard: 1/12 = 8.33% base capacity
+    - Internal roles: 0.25 multiplier (75% less time)
+    - Stage-based: Sourcing (20%), Screening (40%), Interview (20%),
+                   Offer (10%), Pre-Hire Checks (10%), None (100%)
+
+    Formula: base_capacity × internal_multiplier × stage_multiplier
+
+    Args:
+        role_type (str): 'easy', 'medium', or 'hard'
+        is_internal (bool): True if internal-only role
+        stage (str): Recruitment stage or empty string
+
+    Returns:
+        float: Capacity used by this vacancy (0-1 scale)
+    """
+    # Get base capacity
+    role_type_lower = role_type.lower()
+    if role_type_lower not in BASE_CAPACITY:
+        raise ValueError(f"Invalid role type: {role_type}")
+
+    base_capacity = BASE_CAPACITY[role_type_lower]
+
+    # Apply internal multiplier
+    internal_multiplier = 0.25 if is_internal else 1.0
+
+    # Apply stage multiplier
+    stage_lower = stage.lower().strip()
+    stage_multiplier = STAGE_MULTIPLIERS.get(stage_lower, 1.0)
+
+    # Calculate final capacity
+    vacancy_capacity = base_capacity * internal_multiplier * stage_multiplier
+
+    return vacancy_capacity
+
+def calculate_recruiter_capacity_from_vacancies(vacancies):
+    """
+    Calculate capacity for a recruiter from a list of individual vacancies.
+
+    Args:
+        vacancies (list): List of vacancy dicts with keys:
+                         - vacancy_name
+                         - role_type
+                         - is_internal
+                         - stage
+
+    Returns:
+        dict: Contains capacity info, vacancy details, and status
+    """
+    total_capacity_used = 0.0
+    vacancy_details = []
+
+    for vacancy in vacancies:
+        vacancy_capacity = calculate_vacancy_capacity(
+            vacancy['role_type'],
+            vacancy.get('is_internal', False),
+            vacancy.get('stage', '')
+        )
+
+        total_capacity_used += vacancy_capacity
+
+        # Store details for display
+        vacancy_details.append({
+            'name': vacancy.get('vacancy_name', 'Unnamed'),
+            'role_type': vacancy['role_type'].capitalize(),
+            'is_internal': vacancy.get('is_internal', False),
+            'stage': vacancy.get('stage', 'None'),
+            'capacity_percentage': round(vacancy_capacity * 100, 2)
+        })
+
+    capacity_percentage = round(total_capacity_used * 100, 1)
+
+    # Determine status
+    if total_capacity_used > 1.0:
+        status = 'overloaded'
+        status_text = 'Overloaded'
+    elif total_capacity_used >= 0.9:
+        status = 'at-capacity'
+        status_text = 'At Capacity'
+    elif total_capacity_used >= 0.7:
+        status = 'near-capacity'
+        status_text = 'Near Capacity'
+    else:
+        status = 'available'
+        status_text = 'Available'
+
+    # Calculate remaining capacity
+    remaining_capacity = 1.0 - total_capacity_used
+
+    if remaining_capacity >= 0:
+        additional_easy = max(0, int(remaining_capacity * 30))
+        additional_medium = max(0, int(remaining_capacity * 20))
+        additional_hard = max(0, int(remaining_capacity * 12))
+        remaining_message = f"Can take {additional_easy} more easy OR {additional_medium} more medium OR {additional_hard} more hard vacancies"
+    else:
+        overload = abs(remaining_capacity)
+        overload_easy = int(overload * 30)
+        overload_medium = int(overload * 20)
+        overload_hard = int(overload * 12)
+        remaining_message = f"Overloaded by {overload_easy} easy OR {overload_medium} medium OR {overload_hard} hard vacancies"
+
+    return {
+        'capacity_used': total_capacity_used,
+        'capacity_percentage': capacity_percentage,
+        'status': status,
+        'status_text': status_text,
+        'remaining_message': remaining_message,
+        'remaining_capacity': remaining_capacity,
+        'vacancies': vacancy_details
+    }
+
 def calculate_recruiter_capacity(easy_vacancies, medium_vacancies, hard_vacancies):
     """
     Calculate capacity usage for a recruiter based on vacancy counts.
@@ -214,6 +349,139 @@ def calculate_team_summary(recruiters_data):
         'team_health_text': team_health_text
     }
 
+def process_excel_upload(file):
+    """
+    Process uploaded Excel file and extract vacancy data.
+
+    Expected columns:
+    1. Vacancy Name
+    2. Recruiter Name
+    3. Role Type (Easy/Medium/Hard)
+    4. Internal? (Yes/No)
+    5. Stage (Sourcing/Screening/Interview/Offer/Pre-Hire Checks or blank)
+
+    Args:
+        file: FileStorage object from Flask request.files
+
+    Returns:
+        tuple: (recruiters_dict, errors_list)
+               recruiters_dict: {recruiter_name: [vacancy_dicts]}
+               errors_list: List of error messages
+    """
+    import openpyxl
+    from io import BytesIO
+
+    errors = []
+    recruiters_dict = {}
+
+    try:
+        # Read Excel file
+        file_bytes = file.read()
+        workbook = openpyxl.load_workbook(BytesIO(file_bytes))
+        sheet = workbook.active
+
+        # Check if file has data
+        if sheet.max_row < 2:
+            errors.append("Excel file is empty or has no data rows.")
+            return recruiters_dict, errors
+
+        # Get headers from first row
+        headers = [cell.value for cell in sheet[1]]
+
+        # Validate required columns (case-insensitive)
+        required_columns = ['vacancy name', 'recruiter name', 'role type', 'internal?', 'stage']
+        headers_lower = [str(h).lower().strip() if h else '' for h in headers]
+
+        missing_columns = []
+        for req_col in required_columns:
+            if req_col not in headers_lower:
+                missing_columns.append(req_col)
+
+        if missing_columns:
+            errors.append(f"Missing required columns: {', '.join(missing_columns)}")
+            return recruiters_dict, errors
+
+        # Get column indices
+        col_indices = {}
+        for req_col in required_columns:
+            try:
+                col_indices[req_col] = headers_lower.index(req_col)
+            except ValueError:
+                pass
+
+        # Process data rows
+        for row_num in range(2, sheet.max_row + 1):
+            row = sheet[row_num]
+
+            # Extract values
+            vacancy_name = row[col_indices['vacancy name']].value
+            recruiter_name = row[col_indices['recruiter name']].value
+            role_type = row[col_indices['role type']].value
+            internal_str = row[col_indices['internal?']].value
+            stage = row[col_indices['stage']].value
+
+            # Validate recruiter name
+            if not recruiter_name or str(recruiter_name).strip() == '':
+                errors.append(f"Row {row_num}: Empty Recruiter Name")
+                continue
+
+            recruiter_name = str(recruiter_name).strip()
+
+            # Validate vacancy name
+            if not vacancy_name or str(vacancy_name).strip() == '':
+                vacancy_name = f"Vacancy {row_num - 1}"
+
+            vacancy_name = str(vacancy_name).strip()
+
+            # Validate role type
+            if not role_type or str(role_type).strip() == '':
+                errors.append(f"Row {row_num}: Empty Role Type for {vacancy_name}")
+                continue
+
+            role_type = str(role_type).strip().lower()
+            if role_type not in ['easy', 'medium', 'hard']:
+                errors.append(f"Row {row_num}: Invalid Role Type '{role_type}' for {vacancy_name}. Must be Easy, Medium, or Hard.")
+                continue
+
+            # Validate internal
+            if not internal_str or str(internal_str).strip() == '':
+                internal_str = 'No'
+
+            internal_str = str(internal_str).strip().lower()
+            if internal_str not in ['yes', 'no']:
+                errors.append(f"Row {row_num}: Invalid Internal value '{internal_str}' for {vacancy_name}. Must be Yes or No.")
+                continue
+
+            is_internal = (internal_str == 'yes')
+
+            # Validate stage
+            if not stage or str(stage).strip() == '':
+                stage = ''
+            else:
+                stage = str(stage).strip().lower()
+                valid_stages = ['sourcing', 'screening', 'interview', 'offer', 'pre-hire checks', '']
+                if stage not in valid_stages:
+                    errors.append(f"Row {row_num}: Invalid Stage '{stage}' for {vacancy_name}.")
+                    continue
+
+            # Add to recruiters dict
+            if recruiter_name not in recruiters_dict:
+                recruiters_dict[recruiter_name] = []
+
+            recruiters_dict[recruiter_name].append({
+                'vacancy_name': vacancy_name,
+                'role_type': role_type,
+                'is_internal': is_internal,
+                'stage': stage
+            })
+
+    except openpyxl.utils.exceptions.InvalidFileException:
+        errors.append("Invalid file format. Please upload a valid Excel file (.xlsx or .xls).")
+    except Exception as e:
+        errors.append(f"Error processing Excel file: {str(e)}")
+
+    return recruiters_dict, errors
+
 app.jinja_env.globals["format_date"] = format_date
 
 @app.route("/")
@@ -261,55 +529,108 @@ def capacity_tracker():
     Recruitment Capacity Tracker tool.
 
     GET: Display the input form
-    POST: Process form data and display results
+    POST: Process form data (manual or Excel upload) and display results
     """
     recruiters_data = []
     team_summary = None
     errors = []
+    input_method = None
 
     if request.method == "POST":
-        # Get the number of recruiters from form
-        num_recruiters = 0
+        # Check if this is an Excel upload or manual input
+        if 'excel_file' in request.files and request.files['excel_file'].filename:
+            # Excel upload processing
+            input_method = 'excel'
+            file = request.files['excel_file']
 
-        # Collect all recruiter data from form
-        # Form fields are named: name_0, easy_0, medium_0, hard_0, name_1, easy_1, etc.
-        index = 0
-        while f'name_{index}' in request.form:
-            name = request.form.get(f'name_{index}', '').strip()
+            # Validate file extension
+            if not file.filename.endswith(('.xlsx', '.xls')):
+                errors.append("Invalid file format. Please upload .xlsx or .xls file.")
+            else:
+                # Check file size (10MB limit)
+                file.seek(0, 2)  # Seek to end
+                file_size = file.tell()
+                file.seek(0)  # Reset to beginning
 
-            # Skip if name is empty
-            if not name:
-                index += 1
-                continue
+                if file_size > 10 * 1024 * 1024:  # 10MB
+                    errors.append("File too large. Maximum file size is 10MB.")
+                else:
+                    # Process Excel file
+                    recruiters_dict, excel_errors = process_excel_upload(file)
+                    errors.extend(excel_errors)
 
-            try:
-                easy = int(request.form.get(f'easy_{index}', 0))
-                medium = int(request.form.get(f'medium_{index}', 0))
-                hard = int(request.form.get(f'hard_{index}', 0))
+                    # Calculate capacity for each recruiter
+                    if not errors:
+                        for recruiter_name, vacancies in recruiters_dict.items():
+                            try:
+                                capacity_info = calculate_recruiter_capacity_from_vacancies(vacancies)
+                                recruiter = {
+                                    'name': recruiter_name,
+                                    **capacity_info
+                                }
+                                recruiters_data.append(recruiter)
+                            except Exception as e:
+                                errors.append(f"Error calculating capacity for {recruiter_name}: {str(e)}")
 
-                # Validate non-negative
-                if easy < 0 or medium < 0 or hard < 0:
-                    errors.append(f"Error for {name}: Vacancy counts cannot be negative")
+        else:
+            # Manual input processing - Enhanced with new fields
+            input_method = 'manual'
+
+            # Collect all vacancy data from form
+            # Form fields are named: recruiter_0, vacancy_name_0, role_type_0, internal_0, stage_0, etc.
+            index = 0
+            vacancies_by_recruiter = {}
+
+            while f'recruiter_{index}' in request.form:
+                recruiter_name = request.form.get(f'recruiter_{index}', '').strip()
+                vacancy_name = request.form.get(f'vacancy_name_{index}', '').strip()
+                role_type = request.form.get(f'role_type_{index}', '').strip().lower()
+                internal_str = request.form.get(f'internal_{index}', 'no').strip().lower()
+                stage = request.form.get(f'stage_{index}', '').strip().lower()
+
+                # Skip if recruiter name is empty
+                if not recruiter_name:
                     index += 1
                     continue
 
-                # Calculate capacity for this recruiter
-                capacity_info = calculate_recruiter_capacity(easy, medium, hard)
+                # Validate role type
+                if role_type not in ['easy', 'medium', 'hard']:
+                    errors.append(f"Invalid role type for vacancy {index + 1}")
+                    index += 1
+                    continue
 
-                recruiter = {
-                    'name': name,
-                    'easy_vacancies': easy,
-                    'medium_vacancies': medium,
-                    'hard_vacancies': hard,
-                    **capacity_info
-                }
+                # Parse internal
+                is_internal = (internal_str == 'yes')
 
-                recruiters_data.append(recruiter)
+                # Default vacancy name if not provided
+                if not vacancy_name:
+                    vacancy_name = f"Vacancy {index + 1}"
 
-            except ValueError:
-                errors.append(f"Error for {name}: Please enter valid numbers")
+                # Add to recruiter's vacancy list
+                if recruiter_name not in vacancies_by_recruiter:
+                    vacancies_by_recruiter[recruiter_name] = []
 
-            index += 1
+                vacancies_by_recruiter[recruiter_name].append({
+                    'vacancy_name': vacancy_name,
+                    'role_type': role_type,
+                    'is_internal': is_internal,
+                    'stage': stage
+                })
+
+                index += 1
+
+            # Calculate capacity for each recruiter
+            if not errors and vacancies_by_recruiter:
+                for recruiter_name, vacancies in vacancies_by_recruiter.items():
+                    try:
+                        capacity_info = calculate_recruiter_capacity_from_vacancies(vacancies)
+                        recruiter = {
+                            'name': recruiter_name,
+                            **capacity_info
+                        }
+                        recruiters_data.append(recruiter)
+                    except Exception as e:
+                        errors.append(f"Error calculating capacity for {recruiter_name}: {str(e)}")
 
         # Calculate team summary if we have data
         if recruiters_data:
@@ -319,7 +640,94 @@ def capacity_tracker():
         "projects/capacity_tracker.html",
         recruiters=recruiters_data,
         team_summary=team_summary,
-        errors=errors
+        errors=errors,
+        input_method=input_method
+    )
+
+@app.route("/projects/capacity-tracker/download-template")
+def download_capacity_template():
+    """
+    Generate and download a sample Excel template for capacity tracker.
+    """
+    import openpyxl
+    from io import BytesIO
+    from flask import send_file
+
+    # Create workbook
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Capacity Data"
+
+    # Add headers
+    headers = ['Vacancy Name', 'Recruiter Name', 'Role Type', 'Internal?', 'Stage']
+    sheet.append(headers)
+
+    # Style headers
+    from openpyxl.styles import Font, PatternFill
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+
+    for cell in sheet[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+
+    # Add sample data
+    sample_data = [
+        ['Senior Developer', 'John Smith', 'Hard', 'No', 'Screening'],
+        ['Marketing Assistant', 'Jane Doe', 'Easy', 'Yes', 'Sourcing'],
+        ['Finance Manager', 'John Smith', 'Hard', 'No', ''],
+        ['HR Coordinator', 'Jane Doe', 'Medium', 'No', 'Interview'],
+        ['IT Support', 'Bob Wilson', 'Easy', 'Yes', 'Offer'],
+    ]
+
+    for row in sample_data:
+        sheet.append(row)
+
+    # Adjust column widths
+    sheet.column_dimensions['A'].width = 20
+    sheet.column_dimensions['B'].width = 20
+    sheet.column_dimensions['C'].width = 12
+    sheet.column_dimensions['D'].width = 10
+    sheet.column_dimensions['E'].width = 18
+
+    # Add instructions sheet
+    instructions_sheet = workbook.create_sheet("Instructions")
+    instructions = [
+        ['Recruitment Capacity Tracker - Template Instructions'],
+        [''],
+        ['Column Requirements:'],
+        ['1. Vacancy Name: Name of the vacancy (optional, will auto-generate if blank)'],
+        ['2. Recruiter Name: Name of the recruiter (required)'],
+        ['3. Role Type: Easy, Medium, or Hard (required, case-insensitive)'],
+        ['4. Internal?: Yes or No (required, case-insensitive)'],
+        ['5. Stage: Sourcing, Screening, Interview, Offer, Pre-Hire Checks, or blank (optional)'],
+        [''],
+        ['Business Rules:'],
+        ['- Easy roles: Max 30 at full capacity (3.33% each)'],
+        ['- Medium roles: Max 20 at full capacity (5% each)'],
+        ['- Hard roles: Max 12 at full capacity (8.33% each)'],
+        ['- Internal roles take 75% less time (0.25 multiplier)'],
+        ['- Stage weights: Sourcing (20%), Screening (40%), Interview (20%), Offer (10%), Pre-Hire (10%), None (100%)'],
+        [''],
+        ['Example Calculations:'],
+        ['- External, Easy, No Stage: 1/30 = 3.33%'],
+        ['- Internal, Hard, Screening: (1/12) × 0.25 × 0.4 = 0.83%'],
+        ['- External, Medium, Interview: (1/20) × 0.2 = 1%'],
+    ]
+
+    for row in instructions:
+        instructions_sheet.append(row)
+
+    # Save to BytesIO
+    output = BytesIO()
+    workbook.save(output)
+    output.seek(0)
+
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='capacity_tracker_template.xlsx'
     )
 
 @app.route("/about")
