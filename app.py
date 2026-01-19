@@ -1,7 +1,7 @@
 """
 Newton's Repository - A collection of projects, stories, and experiments
 """
-from flask import Flask, render_template, abort, url_for, redirect
+from flask import Flask, render_template, abort, url_for, redirect, request
 from datetime import datetime
 import os
 import re
@@ -27,6 +27,7 @@ BLOG_CATEGORIES = {
 }
 
 PROJECTS = [
+    {"id": "capacity-tracker", "name": "Recruitment Capacity Tracker", "description": "Calculate team capacity for recruitment workloads.", "status": "active", "url": "/projects/capacity-tracker"},
     {"id": "meal-generator", "name": "Meal Generator", "description": "A tool to help plan weekly meals.", "status": "planned"},
     {"id": "fm-tools", "name": "FM Analytics Tools", "description": "Utilities for analyzing FM save data.", "status": "planned"},
 ]
@@ -104,6 +105,115 @@ def get_latest_article():
         return {**latest, "category_id": latest_category["id"], "category_name": latest_category["name"], "excerpt": get_excerpt(content) if content else "", "reading_time": calculate_reading_time(content) if content else 0}
     return None
 
+# ========== RECRUITMENT CAPACITY TRACKER FUNCTIONS ==========
+
+def calculate_recruiter_capacity(easy_vacancies, medium_vacancies, hard_vacancies):
+    """
+    Calculate capacity usage for a recruiter based on vacancy counts.
+
+    Business rules:
+    - Easy vacancies: Max 30 at full capacity
+    - Medium vacancies: Max 20 at full capacity
+    - Hard vacancies: Max 12 at full capacity
+
+    Args:
+        easy_vacancies (int): Number of easy vacancies
+        medium_vacancies (int): Number of medium vacancies
+        hard_vacancies (int): Number of hard vacancies
+
+    Returns:
+        dict: Contains capacity_used (0-1+), capacity_percentage, status, remaining capacities
+    """
+    # Calculate capacity used (can exceed 1.0 if overloaded)
+    capacity_used = (easy_vacancies / 30) + (medium_vacancies / 20) + (hard_vacancies / 12)
+    capacity_percentage = round(capacity_used * 100, 1)
+
+    # Determine status based on capacity
+    if capacity_used > 1.0:
+        status = 'overloaded'
+        status_text = 'Overloaded'
+    elif capacity_used >= 0.9:
+        status = 'at-capacity'
+        status_text = 'At Capacity'
+    elif capacity_used >= 0.7:
+        status = 'near-capacity'
+        status_text = 'Near Capacity'
+    else:
+        status = 'available'
+        status_text = 'Available'
+
+    # Calculate remaining capacity for additional work
+    remaining_capacity = 1.0 - capacity_used
+
+    if remaining_capacity >= 0:
+        additional_easy = max(0, int(remaining_capacity * 30))
+        additional_medium = max(0, int(remaining_capacity * 20))
+        additional_hard = max(0, int(remaining_capacity * 12))
+        remaining_message = f"Can take {additional_easy} more easy OR {additional_medium} more medium OR {additional_hard} more hard vacancies"
+    else:
+        # Overloaded - calculate how much over
+        overload = abs(remaining_capacity)
+        overload_easy = int(overload * 30)
+        overload_medium = int(overload * 20)
+        overload_hard = int(overload * 12)
+        remaining_message = f"Overloaded by {overload_easy} easy OR {overload_medium} medium OR {overload_hard} hard vacancies"
+
+    return {
+        'capacity_used': capacity_used,
+        'capacity_percentage': capacity_percentage,
+        'status': status,
+        'status_text': status_text,
+        'remaining_message': remaining_message,
+        'remaining_capacity': remaining_capacity
+    }
+
+def calculate_team_summary(recruiters_data):
+    """
+    Calculate team-wide summary statistics.
+
+    Args:
+        recruiters_data (list): List of recruiter dictionaries with capacity info
+
+    Returns:
+        dict: Team summary with counts and averages
+    """
+    if not recruiters_data:
+        return None
+
+    total_recruiters = len(recruiters_data)
+    total_capacity = sum(r['capacity_percentage'] for r in recruiters_data)
+    average_capacity = round(total_capacity / total_recruiters, 1)
+
+    # Count by status
+    status_counts = {
+        'available': sum(1 for r in recruiters_data if r['status'] == 'available'),
+        'near-capacity': sum(1 for r in recruiters_data if r['status'] == 'near-capacity'),
+        'at-capacity': sum(1 for r in recruiters_data if r['status'] == 'at-capacity'),
+        'overloaded': sum(1 for r in recruiters_data if r['status'] == 'overloaded')
+    }
+
+    # Determine overall team health
+    if status_counts['overloaded'] > total_recruiters * 0.3:
+        team_health = 'critical'
+        team_health_text = 'Critical - Team Overloaded'
+    elif status_counts['at-capacity'] + status_counts['overloaded'] > total_recruiters * 0.5:
+        team_health = 'warning'
+        team_health_text = 'Warning - High Utilization'
+    elif average_capacity < 50:
+        team_health = 'underutilized'
+        team_health_text = 'Good - Capacity Available'
+    else:
+        team_health = 'healthy'
+        team_health_text = 'Healthy - Balanced Load'
+
+    return {
+        'total_recruiters': total_recruiters,
+        'average_capacity': average_capacity,
+        'status_counts': status_counts,
+        'team_health': team_health,
+        'team_health_text': team_health_text
+    }
+
 app.jinja_env.globals["format_date"] = format_date
 
 @app.route("/")
@@ -144,6 +254,73 @@ def article_legacy(article_id):
 @app.route("/projects")
 def projects():
     return render_template("projects.html", projects=PROJECTS)
+
+@app.route("/projects/capacity-tracker", methods=["GET", "POST"])
+def capacity_tracker():
+    """
+    Recruitment Capacity Tracker tool.
+
+    GET: Display the input form
+    POST: Process form data and display results
+    """
+    recruiters_data = []
+    team_summary = None
+    errors = []
+
+    if request.method == "POST":
+        # Get the number of recruiters from form
+        num_recruiters = 0
+
+        # Collect all recruiter data from form
+        # Form fields are named: name_0, easy_0, medium_0, hard_0, name_1, easy_1, etc.
+        index = 0
+        while f'name_{index}' in request.form:
+            name = request.form.get(f'name_{index}', '').strip()
+
+            # Skip if name is empty
+            if not name:
+                index += 1
+                continue
+
+            try:
+                easy = int(request.form.get(f'easy_{index}', 0))
+                medium = int(request.form.get(f'medium_{index}', 0))
+                hard = int(request.form.get(f'hard_{index}', 0))
+
+                # Validate non-negative
+                if easy < 0 or medium < 0 or hard < 0:
+                    errors.append(f"Error for {name}: Vacancy counts cannot be negative")
+                    index += 1
+                    continue
+
+                # Calculate capacity for this recruiter
+                capacity_info = calculate_recruiter_capacity(easy, medium, hard)
+
+                recruiter = {
+                    'name': name,
+                    'easy_vacancies': easy,
+                    'medium_vacancies': medium,
+                    'hard_vacancies': hard,
+                    **capacity_info
+                }
+
+                recruiters_data.append(recruiter)
+
+            except ValueError:
+                errors.append(f"Error for {name}: Please enter valid numbers")
+
+            index += 1
+
+        # Calculate team summary if we have data
+        if recruiters_data:
+            team_summary = calculate_team_summary(recruiters_data)
+
+    return render_template(
+        "projects/capacity_tracker.html",
+        recruiters=recruiters_data,
+        team_summary=team_summary,
+        errors=errors
+    )
 
 @app.route("/about")
 def about():
