@@ -3,6 +3,13 @@
 {% block title %}Projects - Newton's Repository{% endblock %}
 
 {% block content %}
+<style>
+    /* Active project card hover effect */
+    .card.h-100.border-0.shadow-sm:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+</style>
 <!-- Hero Section -->
 <section class="hero hero-sm">
     <div class="container">
@@ -20,30 +27,37 @@
         </ol>
     </nav>
 
-    <!-- Coming Soon Message -->
-    <div class="row justify-content-center mb-5">
-        <div class="col-lg-8 text-center">
-            <div class="card project-card p-5">
-                <div class="card-body">
-                    <h2 class="h3 mb-3 text-muted">Coming Soon</h2>
-                    <p class="lead text-muted mb-4">
-                        This section will showcase various coding projects and useful tools.
-                        Check back soon!
-                    </p>
-                    <p class="text-muted">
-                        I'm working on a collection of practical tools and experiments,
-                        from meal planning utilities to Football Manager analytics.
-                    </p>
+    <!-- Active Projects -->
+    {% set active_projects = projects|selectattr('status', 'equalto', 'active')|list %}
+    {% if active_projects %}
+    <h2 class="h4 mb-4">Active Projects</h2>
+    <div class="row g-4 mb-5">
+        {% for project in active_projects %}
+        <div class="col-md-6 col-lg-4">
+            <a href="{{ project.url }}" class="text-decoration-none">
+                <div class="card h-100 border-0 shadow-sm" style="transition: transform 0.2s, box-shadow 0.2s;">
+                    <div class="card-body">
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                            <h3 class="h5 card-title mb-0">{{ project.name }}</h3>
+                            <span class="badge bg-success">{{ project.status }}</span>
+                        </div>
+                        <p class="text-muted small mb-3">{{ project.description }}</p>
+                        <span class="btn btn-sm btn-primary">Open Tool &rarr;</span>
+                    </div>
                 </div>
-            </div>
+            </a>
         </div>
+        {% endfor %}
     </div>
+    {% endif %}
 
     <!-- Planned Projects -->
+    {% set planned_projects = projects|selectattr('status', 'equalto', 'planned')|list %}
+    {% if planned_projects %}
     <h2 class="h4 mb-4 text-muted">Planned Projects</h2>
 
     <div class="row g-4">
-        {% for project in projects %}
+        {% for project in planned_projects %}
         <div class="col-md-6 col-lg-4">
             <div class="card project-card h-100">
                 <div class="card-body">
@@ -69,6 +83,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Back to Home -->
     <div class="mt-5 pt-3 border-top">
