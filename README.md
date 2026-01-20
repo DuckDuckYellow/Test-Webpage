@@ -1,8 +1,8 @@
-# FM Stories - Football Manager Blog
+# Newton's Repository - Football Manager Blog & Projects
 
-A personal blog documenting Football Manager saves through narrative storytelling. Built with Python and Flask as a learning project.
+A personal website featuring Football Manager save stories and useful tools. Built with Python and Flask with enterprise-grade architecture.
 
-**Status:** Functional locally, not yet deployed
+**Status:** Live at [newtonsrepository.dev](https://newtonsrepository.dev/)
 
 ## Tech Stack
 
@@ -46,7 +46,7 @@ python app.py
 
 ### 5. Access in browser
 
-Open (https://the442.pythonanywhere.com/)
+Open [https://newtonsrepository.dev/](https://newtonsrepository.dev/)
 
 ## Project Structure
 
