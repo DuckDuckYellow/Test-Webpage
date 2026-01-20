@@ -21,8 +21,12 @@ Thumbs.db
 instance/
 .webassets-cache
 
-# Environment
+# Environment files
 .env
+.env.local
+.env.*.local
+*.env
 *.log
 *.backup
+app.py.backup
 # Sync commit Sun Jan 18 15:43:33 UTC 2026

@@ -6,30 +6,11 @@ from datetime import datetime
 from pathlib import Path
 import os
 import re
-import secrets
-from dotenv import load_dotenv
+from config import get_config
 
-load_dotenv()
-
-class Config:
-    """Security configuration for Flask application."""
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        if os.environ.get('FLASK_ENV') == 'production':
-            raise ValueError("SECRET_KEY must be set in production!")
-        else:
-            SECRET_KEY = secrets.token_hex(32)
-            print("⚠️  WARNING: Using auto-generated SECRET_KEY for development")
-
-    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1')
-    MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10MB max file size
-    UPLOAD_EXTENSIONS = {'.xlsx', '.xls'}
-    SESSION_COOKIE_SECURE = False  # Set True when using HTTPS
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
-
+# Load configuration based on environment
 app = Flask(__name__)
-app.config.from_object(Config)
+app.config.from_object(get_config())
 
 @app.after_request
 def set_security_headers(response):
@@ -92,8 +73,8 @@ def get_article_content(filename):
     if not filename or not re.match(r'^[\w\-\.]+$', filename):
         return None
 
-    # Build safe path using pathlib
-    articles_dir = Path(app.root_path) / "articles"
+    # Use centralized path configuration
+    articles_dir = app.config['ARTICLES_DIR']
     filepath = (articles_dir / filename).resolve()
 
     # Ensure the resolved path is still within articles directory (prevents traversal)
@@ -841,13 +822,24 @@ def page_not_found(e):
     return render_template("404.html"), 404
 
 if __name__ == "__main__":
+    # Get configuration from app config (already loaded)
     debug_mode = app.config.get('DEBUG', False)
+    env_name = os.environ.get('FLASK_ENV', 'development')
 
-    if debug_mode:
-        print("=" * 60)
-        print("⚠️  WARNING: Running in DEBUG mode")
-        print("   This should ONLY be used in development!")
-        print("   Set FLASK_DEBUG=False for production")
-        print("=" * 60)
+    # Display startup information
+    print("=" * 60)
+    print(f"Flask Application Starting")
+    print(f"Environment: {env_name}")
+    print(f"Debug Mode: {debug_mode}")
+    print(f"Config: {app.config.__class__.__name__}")
+    print("=" * 60)
 
-    app.run(debug=debug_mode)
+    if debug_mode and env_name == 'production':
+        print("\n⚠️  WARNING: Debug mode enabled in production!")
+        print("This is a security risk. Set FLASK_DEBUG=false\n")
+
+    # Get host and port from environment or use defaults
+    host = os.environ.get('FLASK_HOST', '127.0.0.1')
+    port = int(os.environ.get('FLASK_PORT', 5000))
+
+    app.run(host=host, port=port, debug=debug_mode)
