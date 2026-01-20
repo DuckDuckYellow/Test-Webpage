@@ -190,12 +190,12 @@ python3 -c "import openpyxl; print(openpyxl.__version__)"
 
 Should output: `3.1.2`
 
-### Step 4: Reload Web App
-- Go to PythonAnywhere **Web** tab
-- Click **"Reload the442.pythonanywhere.com"**
+### Step 4: Deploy to Production
+- Push changes to your repository
+- Render will automatically deploy the updates
 
 ### Step 5: Test the Tool
-- Visit: `https://the442.pythonanywhere.com/projects/capacity-tracker`
+- Visit: [https://newtonsrepository.dev/projects/capacity-tracker](https://newtonsrepository.dev/projects/capacity-tracker)
 - Test both Excel upload and manual input
 - Download and test the template
 

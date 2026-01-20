@@ -289,9 +289,10 @@ python3 -c "from config import get_config; print(get_config().__name__)"
 # Should output: DevelopmentConfig
 ```
 
-### **Step 4: Reload Web App**
-- Go to **Web** tab
-- Click **"Reload the442.pythonanywhere.com"**
+### **Step 4: Deploy to Production**
+- Push changes to your repository
+- Render will automatically deploy from the git repository
+- Visit [https://newtonsrepository.dev/](https://newtonsrepository.dev/) to verify
 
 ### **Step 5: Verify Startup**
 Check error log for startup message:

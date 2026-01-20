@@ -224,12 +224,12 @@ else:
    git pull origin claude/add-recruitment-tracker-LIulS
    ```
 
-2. **Reload web app**
-   - Go to Web tab in PythonAnywhere
-   - Click "Reload the442.pythonanywhere.com"
+2. **Deploy to production**
+   - Push changes to your repository
+   - Render will automatically deploy the updates
 
 3. **Test the feature**
-   - Visit: https://the442.pythonanywhere.com/projects/capacity-tracker
+   - Visit: [https://newtonsrepository.dev/projects/capacity-tracker](https://newtonsrepository.dev/projects/capacity-tracker)
    - Run through testing checklist
 
 ---
