@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import re
 from config import get_config
+from models import Article, BlogCategory, RoleType, RecruitmentStage, Vacancy, Recruiter
 
 # Load configuration based on environment
 app = Flask(__name__)
@@ -43,7 +44,8 @@ def set_security_headers(response):
 from flask_wtf.csrf import CSRFProtect
 csrf = CSRFProtect(app)
 
-BLOG_CATEGORIES = {
+# Raw category data for initialization
+_RAW_CATEGORIES = {
     "morecambe-fm26": {
         "id": "morecambe-fm26",
         "name": "Morecambe FC",
@@ -60,6 +62,19 @@ BLOG_CATEGORIES = {
         ]
     }
 }
+
+# Convert raw data to typed BlogCategory objects
+BLOG_CATEGORIES = {}
+for cat_id, data in _RAW_CATEGORIES.items():
+    articles = [Article(**article, category_id=cat_id) for article in data['articles']]
+    BLOG_CATEGORIES[cat_id] = BlogCategory(
+        id=data['id'],
+        name=data['name'],
+        subtitle=data['subtitle'],
+        description=data['description'],
+        image=data['image'],
+        articles=articles
+    )
 
 PROJECTS = [
     {"id": "capacity-tracker", "name": "Recruitment Capacity Tracker", "description": "Calculate team capacity for recruitment workloads.", "status": "active", "url": "/projects/capacity-tracker"},
@@ -114,46 +129,82 @@ def parse_content(text):
     return blocks
 
 def get_category_articles(category_id):
+    """Get category and its articles with enriched data."""
     category = BLOG_CATEGORIES.get(category_id)
     if not category:
         return None, []
-    articles = []
-    for article in category["articles"]:
-        content = get_article_content(article["filename"])
-        articles.append({**article, "reading_time": calculate_reading_time(content) if content else 0, "excerpt": get_excerpt(content) if content else "", "category_id": category_id})
-    return category, sorted(articles, key=lambda x: x["part"])
+
+    # Enrich articles with content, reading time, and excerpt
+    enriched_articles = []
+    for article in category.articles:
+        content = get_article_content(article.filename)
+        # Create a copy with enriched data
+        enriched = Article(
+            id=article.id,
+            title=article.title,
+            date=article.date,
+            filename=article.filename,
+            part=article.part,
+            category_id=article.category_id,
+            content=content,
+            reading_time=calculate_reading_time(content) if content else 0,
+            excerpt=get_excerpt(content) if content else ""
+        )
+        enriched_articles.append(enriched)
+
+    return category, sorted(enriched_articles, key=lambda x: x.part)
 
 def get_article_by_id(category_id, article_id):
+    """Get category and specific article by ID."""
     category = BLOG_CATEGORIES.get(category_id)
     if not category:
         return None, None
-    for article in category["articles"]:
-        if article["id"] == article_id:
-            return category, article
-    return category, None
+
+    article = category.get_article_by_id(article_id)
+    return category, article
 
 def get_prev_next_articles(category_id, current_part):
+    """Get previous and next articles for navigation."""
     category = BLOG_CATEGORIES.get(category_id)
     if not category:
         return None, None
+
     prev_article, next_article = None, None
-    for article in category["articles"]:
-        if article["part"] == current_part - 1:
+    for article in category.articles:
+        if article.part == current_part - 1:
             prev_article = article
-        elif article["part"] == current_part + 1:
+        elif article.part == current_part + 1:
             next_article = article
+
     return prev_article, next_article
 
 def get_latest_article():
+    """Get the most recent article across all categories."""
     latest, latest_date, latest_category = None, None, None
+
     for cat_id, category in BLOG_CATEGORIES.items():
-        for article in category["articles"]:
-            article_date = datetime.strptime(article["date"], "%Y-%m-%d")
-            if latest_date is None or article_date > latest_date:
-                latest, latest_date, latest_category = article, article_date, category
+        for article in category.articles:
+            if latest_date is None or article.date_obj > latest_date:
+                latest, latest_date, latest_category = article, article.date_obj, category
+
     if latest and latest_category:
-        content = get_article_content(latest["filename"])
-        return {**latest, "category_id": latest_category["id"], "category_name": latest_category["name"], "excerpt": get_excerpt(content) if content else "", "reading_time": calculate_reading_time(content) if content else 0}
+        content = get_article_content(latest.filename)
+        # Return enriched Article object
+        enriched = Article(
+            id=latest.id,
+            title=latest.title,
+            date=latest.date,
+            filename=latest.filename,
+            part=latest.part,
+            category_id=latest_category.id,
+            content=content,
+            excerpt=get_excerpt(content) if content else "",
+            reading_time=calculate_reading_time(content) if content else 0
+        )
+        # Add category name as attribute for template convenience
+        enriched.category_name = latest_category.name
+        return enriched
+
     return None
 
 # ========== RECRUITMENT CAPACITY TRACKER FUNCTIONS ==========
@@ -580,7 +631,8 @@ def home():
 
 @app.route("/blog")
 def blog_home():
-    categories = [{**cat, "article_count": len(cat["articles"])} for cat_id, cat in BLOG_CATEGORIES.items()]
+    # Pass BlogCategory objects directly - they have article_count property
+    categories = list(BLOG_CATEGORIES.values())
     return render_template("blog_home.html", categories=categories)
 
 @app.route("/blog/<category_id>")
@@ -595,17 +647,17 @@ def article(category_id, article_id):
     category, article_data = get_article_by_id(category_id, article_id)
     if not category or not article_data:
         abort(404)
-    content = get_article_content(article_data["filename"])
+    content = get_article_content(article_data.filename)
     if not content:
         abort(404)
-    prev_article, next_article = get_prev_next_articles(category_id, article_data["part"])
-    return render_template("article.html", article=article_data, category=category, content_blocks=parse_content(content), reading_time=calculate_reading_time(content), prev_article=prev_article, next_article=next_article, total_parts=len(category["articles"]))
+    prev_article, next_article = get_prev_next_articles(category_id, article_data.part)
+    return render_template("article.html", article=article_data, category=category, content_blocks=parse_content(content), reading_time=calculate_reading_time(content), prev_article=prev_article, next_article=next_article, total_parts=len(category.articles))
 
 @app.route("/article/<article_id>")
 def article_legacy(article_id):
     for cat_id, category in BLOG_CATEGORIES.items():
-        for article in category["articles"]:
-            if article["id"] == article_id:
+        for article in category.articles:
+            if article.id == article_id:
                 return redirect(url_for('article', category_id=cat_id, article_id=article_id))
     abort(404)
 
