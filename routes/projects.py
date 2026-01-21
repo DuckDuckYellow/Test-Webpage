@@ -374,6 +374,26 @@ def export_squad_audit():
         return f"Error generating CSV: {str(e)}", 500
 
 
+@projects_bp.route("/squad-audit-tracker/debug-session", methods=["GET"])
+def debug_session():
+    """Debug endpoint to check session state."""
+    import os
+    session_info = {
+        'session_exists': bool(session),
+        'session_keys': list(session.keys()),
+        'has_squad_html_path': 'squad_html_path' in session,
+    }
+
+    if 'squad_html_path' in session:
+        html_path = session['squad_html_path']
+        session_info['squad_html_path'] = html_path
+        session_info['file_exists'] = os.path.exists(html_path)
+        if os.path.exists(html_path):
+            session_info['file_size'] = os.path.getsize(html_path)
+
+    return session_info
+
+
 @projects_bp.route("/squad-audit-tracker/recalculate", methods=["POST"])
 def recalculate_player_position():
     """
@@ -400,8 +420,17 @@ def recalculate_player_position():
 
         # Get stored HTML file path from session
         if 'squad_html_path' not in session:
-            current_app.logger.warning(f"Position recalculation: No session data found. Available keys: {list(session.keys())}")
-            return {"error": "No analysis data in session. Please upload a squad file first.", "success": False}, 400
+            session_info = {
+                'has_session': bool(session),
+                'session_keys': list(session.keys()),
+                'session_id': session.get('_id', 'no_id')
+            }
+            current_app.logger.warning(f"Position recalculation: No session data found. Session info: {session_info}")
+            return {
+                "error": "No analysis data in session. Please upload a squad file first.",
+                "success": False,
+                "debug": session_info
+            }, 400
 
         html_file_path = session['squad_html_path']
 
