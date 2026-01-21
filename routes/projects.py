@@ -235,6 +235,17 @@ def squad_audit_tracker():
                 try:
                     current_app.logger.info(f"Squad audit: Processing {file.filename}")
 
+                    # Clean up old temporary file if it exists
+                    import os
+                    if 'squad_html_path' in session:
+                        old_file = session['squad_html_path']
+                        if os.path.exists(old_file):
+                            try:
+                                os.remove(old_file)
+                                current_app.logger.info(f"Squad audit: Cleaned up old file {old_file}")
+                            except Exception as e:
+                                current_app.logger.warning(f"Squad audit: Could not remove old file: {e}")
+
                     # Read HTML content
                     html_content = file.read().decode('utf-8')
 
@@ -251,12 +262,26 @@ def squad_audit_tracker():
                     # Store result in session for CSV export and position recalculation
                     session['squad_analysis_csv'] = service.export_to_csv_data(analysis_result)
 
-                    # Store squad object for position recalculation (pickle for complex objects)
-                    import pickle
-                    session['squad_analysis_result'] = {
-                        'squad': pickle.dumps(squad),
-                        'timestamp': str(current_app.logger)
-                    }
+                    # Store HTML content in session for position recalculation
+                    # (more efficient than pickling the entire squad object)
+                    import tempfile
+                    import os
+
+                    # Create a temporary file to store the HTML
+                    temp_dir = tempfile.gettempdir()
+                    temp_file = tempfile.NamedTemporaryFile(
+                        mode='w',
+                        suffix='.html',
+                        prefix='squad_audit_',
+                        dir=temp_dir,
+                        delete=False
+                    )
+                    temp_file.write(html_content)
+                    temp_file_path = temp_file.name
+                    temp_file.close()
+
+                    session['squad_html_path'] = temp_file_path
+                    current_app.logger.info(f"Squad audit: Stored HTML in {temp_file_path}")
 
                     current_app.logger.info("Squad audit: Analysis complete")
 
@@ -272,8 +297,13 @@ def squad_audit_tracker():
     # Generate formation suggestions if we have an analysis result
     formation_suggestions = None
     if analysis_result:
-        service = SquadAuditService()
-        formation_suggestions = service.suggest_formations(analysis_result, top_n=3)
+        try:
+            service = SquadAuditService()
+            formation_suggestions = service.suggest_formations(analysis_result, top_n=3)
+            current_app.logger.info(f"Squad audit: Generated {len(formation_suggestions) if formation_suggestions else 0} formation suggestions")
+        except Exception as e:
+            current_app.logger.error(f"Squad audit: Error generating formation suggestions: {e}")
+            errors.append(f"Could not generate formation suggestions: {str(e)}")
 
     return render_template(
         "projects/squad_audit_tracker.html",
@@ -326,7 +356,6 @@ def recalculate_player_position():
     from services.squad_audit_service import SquadAuditService
     from models.squad_audit import PositionCategory
     import json
-    import pickle
 
     try:
         current_app.logger.info("Position recalculation requested")
@@ -338,13 +367,26 @@ def recalculate_player_position():
         if not player_name or not new_position:
             return {"error": "Missing player_name or new_position", "success": False}, 400
 
-        # Get stored analysis result from session
-        if 'squad_analysis_result' not in session:
+        # Get stored HTML file path from session
+        if 'squad_html_path' not in session:
             current_app.logger.warning("Position recalculation: No session data found")
             return {"error": "No analysis data in session. Please upload a squad file first.", "success": False}, 400
 
-        # Deserialize the stored squad and result
-        squad = pickle.loads(session['squad_analysis_result']['squad'])
+        html_file_path = session['squad_html_path']
+
+        # Check if the temporary file still exists
+        import os
+        if not os.path.exists(html_file_path):
+            current_app.logger.error(f"Position recalculation: HTML file not found at {html_file_path}")
+            return {"error": "Session expired. Please upload your squad file again.", "success": False}, 400
+
+        # Read and re-parse the HTML
+        from services.fm_parser import FMHTMLParser
+        with open(html_file_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        parser = FMHTMLParser()
+        squad = parser.parse_html(html_content)
 
         # Find the player
         player = None
