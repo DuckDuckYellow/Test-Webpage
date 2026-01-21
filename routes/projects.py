@@ -5,6 +5,7 @@ Handles all project-related routes including the Recruitment Capacity Tracker.
 """
 
 from flask import Blueprint, render_template, request, send_file, current_app, session, make_response
+from flask_wtf.csrf import csrf_exempt
 from io import BytesIO, StringIO
 import csv
 from pydantic import ValidationError
@@ -278,11 +279,16 @@ def squad_audit_tracker():
                     temp_file.close()
 
                     # Store only the file path in session (avoids exceeding cookie size limits)
+                    session.permanent = True  # Make session permanent so it persists
                     session['squad_html_path'] = temp_file_path
                     session.modified = True  # Explicitly mark session as modified
                     current_app.logger.info(f"Squad audit: Stored HTML in {temp_file_path}")
                     current_app.logger.info(f"Squad audit: Session size check - squad_html_path length: {len(temp_file_path)} chars")
                     current_app.logger.info(f"Squad audit: Session keys after storage: {list(session.keys())}")
+
+                    # Verify we can immediately read back the session data
+                    verification = session.get('squad_html_path')
+                    current_app.logger.info(f"Squad audit: Session verification - can read back: {verification == temp_file_path}")
 
                     current_app.logger.info("Squad audit: Analysis complete")
 
@@ -395,6 +401,7 @@ def debug_session():
 
 
 @projects_bp.route("/squad-audit-tracker/recalculate", methods=["POST"])
+@csrf_exempt  # Exempt from CSRF for AJAX JSON API endpoint
 def recalculate_player_position():
     """
     Recalculate analysis for a player with a new position.
