@@ -262,6 +262,33 @@ class Player:
 
         return best_position
 
+    def get_all_possible_positions(self) -> List[PositionCategory]:
+        """
+        Get all possible position categories this player can play.
+
+        Returns:
+            List of PositionCategory enum values
+        """
+        # Parse all possible positions from the position field
+        position_strings = [p.strip() for p in self.position.split(',')]
+
+        # Map each position string to a PositionCategory
+        possible_positions = []
+        for pos_str in position_strings:
+            try:
+                pos_cat = self._parse_position_string(pos_str)
+                if pos_cat not in possible_positions:
+                    possible_positions.append(pos_cat)
+            except:
+                continue
+
+        # If no valid positions found, fall back to position_selected
+        if not possible_positions:
+            pos_cat = self.get_position_category()
+            possible_positions.append(pos_cat)
+
+        return possible_positions
+
     def get_total_apps(self) -> int:
         """Get total appearances (starts + subs)."""
         return self.apps + self.subs

@@ -235,7 +235,22 @@
                                     data-position="{{ analysis.player.get_position_category().value }}"
                                     data-verdict="{{ analysis.verdict.value }}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
-                                    <td><span class="badge bg-secondary">{{ analysis.player.get_position_category().value }}</span></td>
+                                    <td>
+                                        {% set all_positions = analysis.player.get_all_possible_positions() %}
+                                        {% if all_positions|length > 1 %}
+                                            <select class="form-select form-select-sm position-selector"
+                                                    data-player-name="{{ analysis.player.name }}"
+                                                    style="min-width: 70px;">
+                                                {% for pos in all_positions %}
+                                                <option value="{{ pos.value }}" {% if pos == analysis.player.get_position_category() %}selected{% endif %}>
+                                                    {{ pos.value }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ analysis.player.get_position_category().value }}</span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end" data-value="{{ analysis.value_score }}">
                                         <span class="badge bg-{{ analysis.get_value_score_color() }} fs-6">
@@ -434,6 +449,65 @@
     </div>
     {% endif %}
 
+    <!-- Formation Suggestions -->
+    {% if formation_suggestions %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm border-start border-primary border-4">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">
+                        <i class="bi bi-diagram-3-fill"></i> Recommended Formations
+                    </h5>
+                    <p class="text-muted small mb-4">
+                        Formations optimized to maximize your elite and good performers. Ranked by quality of available players.
+                    </p>
+
+                    {% for formation in formation_suggestions %}
+                    <div class="mb-4 {% if not loop.last %}pb-3 border-bottom{% endif %}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">
+                                {% if loop.first %}
+                                    <span class="badge bg-success me-2">1st Choice</span>
+                                {% elif loop.index == 2 %}
+                                    <span class="badge bg-info me-2">2nd Choice</span>
+                                {% else %}
+                                    <span class="badge bg-secondary me-2">3rd Choice</span>
+                                {% endif %}
+                                <strong>{{ formation.name }}</strong>
+                            </h6>
+                            <span class="badge bg-dark">Quality Score: {{ formation.score }}</span>
+                        </div>
+
+                        <div class="row g-2 mt-2">
+                            {% for pos_data in formation.breakdown %}
+                            <div class="col-6 col-md-4 col-lg-3">
+                                <div class="card border {% if pos_data.elite >= pos_data.required %}border-success{% elif pos_data.elite + pos_data.good >= pos_data.required %}border-info{% else %}border-warning{% endif %} bg-light">
+                                    <div class="card-body p-2 small">
+                                        <div class="fw-bold">{{ pos_data.position }} ({{ pos_data.required }} needed)</div>
+                                        <div class="text-muted">
+                                            <i class="bi bi-star-fill text-success"></i> {{ pos_data.elite }} Elite
+                                            <br>
+                                            <i class="bi bi-star-half text-info"></i> {{ pos_data.good }} Good
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <div class="alert alert-info mt-3 mb-0">
+                        <i class="bi bi-info-circle-fill"></i>
+                        <strong>Tip:</strong> These formations prioritize positions where you have elite/good performers.
+                        Consider squad depth and tactical flexibility when making your final choice.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% endif %}
 
     <!-- Back to Projects -->
@@ -579,6 +653,127 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial sort label
     updateSortLabel();
+
+    // Position change handler
+    document.querySelectorAll('.position-selector').forEach(selector => {
+        selector.addEventListener('change', function() {
+            const playerName = this.dataset.playerName;
+            const newPosition = this.value;
+            const row = this.closest('tr');
+
+            // Show loading state
+            const originalHTML = row.innerHTML;
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+
+            // Make AJAX request to recalculate
+            fetch('{{ url_for("projects.recalculate_player_position") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    player_name: playerName,
+                    new_position: newPosition
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the row with new data
+                    updatePlayerRow(row, data);
+
+                    // Update poor performers section
+                    updatePoorPerformersSection();
+
+                    // Show success feedback
+                    row.style.opacity = '1';
+                    row.style.pointerEvents = 'auto';
+                    row.classList.add('table-success');
+                    setTimeout(() => row.classList.remove('table-success'), 1000);
+                } else {
+                    console.error('Recalculation failed:', data.error);
+                    alert('Error: ' + data.error);
+                    row.style.opacity = '1';
+                    row.style.pointerEvents = 'auto';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to recalculate position. Please try again.');
+                row.style.opacity = '1';
+                row.style.pointerEvents = 'auto';
+            });
+        });
+    });
+
+    function updatePlayerRow(row, data) {
+        // Update data attributes
+        row.dataset.position = data.position;
+        row.dataset.verdict = data.verdict;
+
+        // Update value score cell (index 3)
+        const valueCell = row.children[3];
+        const valueBadge = valueCell.querySelector('.badge');
+        valueBadge.textContent = data.value_score;
+        valueBadge.className = `badge bg-${data.value_score_color} fs-6`;
+        valueCell.dataset.value = data.value_score;
+
+        // Update performance verdict cell (index 4)
+        const verdictCell = row.children[4];
+        let verdictColor = 'secondary';
+        if (data.verdict === 'ELITE') verdictColor = 'success';
+        else if (data.verdict === 'GOOD') verdictColor = 'info';
+        else if (data.verdict === 'AVERAGE') verdictColor = 'warning';
+        else if (data.verdict === 'POOR') verdictColor = 'danger';
+        verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
+
+        // Update top metrics cell (index 7)
+        const metricsCell = row.children[7];
+        if (data.top_metrics && data.top_metrics.length > 0) {
+            metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
+        } else {
+            metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
+        }
+
+        // Update recommendation cell (index 8)
+        const recCell = row.children[8];
+        const recParts = data.recommendation.split(' - ', 2);
+        if (recParts.length === 2) {
+            recCell.innerHTML = `
+                <div class="d-flex flex-column gap-1 small">
+                    <div><span class="badge bg-primary text-wrap">${recParts[0]}</span></div>
+                    <div class="text-muted">${recParts[1]}</div>
+                </div>
+            `;
+        } else {
+            recCell.innerHTML = `<span class="small">${data.recommendation}</span>`;
+        }
+    }
+
+    function updatePoorPerformersSection() {
+        // Reload the page to update poor performers section
+        // In a more sophisticated implementation, this could be done via AJAX
+        // For now, we'll just note that the page should be refreshed
+        console.log('Poor performers section needs manual refresh');
+    }
+
+    // Reinitialize tooltips after any dynamic content changes
+    function reinitializeTooltips() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+            // Dispose existing tooltip if any
+            var existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+            if (existingTooltip) {
+                existingTooltip.dispose();
+            }
+            // Create new tooltip
+            new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    }
+
+    // Call initially to ensure tooltips work
+    reinitializeTooltips();
 });
 </script>
 {% endif %}

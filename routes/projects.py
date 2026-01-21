@@ -248,8 +248,15 @@ def squad_audit_tracker():
                     service = SquadAuditService()
                     analysis_result = service.analyze_squad(squad)
 
-                    # Store result in session for CSV export
+                    # Store result in session for CSV export and position recalculation
                     session['squad_analysis_csv'] = service.export_to_csv_data(analysis_result)
+
+                    # Store squad object for position recalculation (pickle for complex objects)
+                    import pickle
+                    session['squad_analysis_result'] = {
+                        'squad': pickle.dumps(squad),
+                        'timestamp': str(current_app.logger)
+                    }
 
                     current_app.logger.info("Squad audit: Analysis complete")
 
@@ -262,10 +269,16 @@ def squad_audit_tracker():
                     errors.append(error_msg)
                     current_app.logger.error(f"Squad audit error: {e}")
 
+    # Generate formation suggestions if we have an analysis result
+    formation_suggestions = None
+    if analysis_result:
+        formation_suggestions = service.suggest_formations(analysis_result, top_n=3)
+
     return render_template(
         "projects/squad_audit_tracker.html",
         analysis_result=analysis_result,
-        errors=errors
+        errors=errors,
+        formation_suggestions=formation_suggestions
     )
 
 
@@ -299,3 +312,83 @@ def export_squad_audit():
     current_app.logger.info("Squad audit: CSV export complete")
 
     return response
+
+
+@projects_bp.route("/squad-audit-tracker/recalculate", methods=["POST"])
+def recalculate_player_position():
+    """
+    Recalculate analysis for a player with a new position.
+
+    Expects JSON: {"player_name": "John Doe", "new_position": "ST"}
+    Returns: Updated player analysis data as JSON
+    """
+    from services.squad_audit_service import SquadAuditService
+    from models.squad_audit import PositionCategory
+    import json
+
+    current_app.logger.info("Position recalculation requested")
+
+    data = request.get_json()
+    player_name = data.get('player_name')
+    new_position = data.get('new_position')
+
+    if not player_name or not new_position:
+        return {"error": "Missing player_name or new_position"}, 400
+
+    # Get stored analysis result from session
+    if 'squad_analysis_result' not in session:
+        return {"error": "No analysis data in session"}, 400
+
+    # Deserialize the stored squad and result
+    import pickle
+    squad = pickle.loads(session['squad_analysis_result']['squad'])
+
+    # Find the player
+    player = None
+    for p in squad.players:
+        if p.name == player_name:
+            player = p
+            break
+
+    if not player:
+        return {"error": f"Player {player_name} not found"}, 404
+
+    # Validate the new position is valid for this player
+    try:
+        new_pos_category = PositionCategory(new_position)
+    except ValueError:
+        return {"error": f"Invalid position: {new_position}"}, 400
+
+    possible_positions = player.get_all_possible_positions()
+    if new_pos_category not in possible_positions:
+        return {"error": f"Player cannot play {new_position}"}, 400
+
+    # Recalculate analysis with the new position
+    service = SquadAuditService()
+
+    # Get the full analysis result to access position benchmarks
+    full_result = service.analyze_squad(squad)
+    position_benchmarks = full_result.position_benchmarks
+    squad_avg_wage = full_result.squad_avg_wage
+
+    # Analyze this specific player with the new position override
+    analysis = service._analyze_player(
+        player,
+        position_benchmarks,
+        squad_avg_wage,
+        position_override=new_pos_category
+    )
+
+    # Return the updated analysis data
+    return {
+        "success": True,
+        "player_name": player.name,
+        "position": new_position,
+        "value_score": round(analysis.value_score, 1),
+        "value_score_color": analysis.get_value_score_color(),
+        "performance_index": round(analysis.performance_index, 1),
+        "verdict": analysis.verdict.value,
+        "recommendation": analysis.recommendation,
+        "top_metrics": analysis.top_metrics,
+        "contract_warning": analysis.contract_warning
+    }

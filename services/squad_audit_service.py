@@ -92,7 +92,8 @@ class SquadAuditService:
         self,
         player: Player,
         benchmarks: Dict[str, Dict[str, float]],
-        squad_avg_wage: float
+        squad_avg_wage: float,
+        position_override: Optional[PositionCategory] = None
     ) -> PlayerAnalysis:
         """
         Analyze a single player.
@@ -101,12 +102,13 @@ class SquadAuditService:
             player: Player to analyze
             benchmarks: Position benchmarks for normalization
             squad_avg_wage: Squad average wage for value calculation
+            position_override: Optional position to override automatic detection
 
         Returns:
             PlayerAnalysis with performance index, value score, and recommendation
         """
-        # Get position category
-        position = player.get_position_category()
+        # Get position category (use override if provided)
+        position = position_override if position_override else player.get_position_category()
 
         # Calculate performance index
         performance_index = self._calculate_performance_index(player, position, benchmarks)
@@ -459,3 +461,210 @@ class SquadAuditService:
             csv_data.append(row)
 
         return csv_data
+
+    def suggest_formations(self, result: SquadAnalysisResult, top_n: int = 3) -> List[Dict]:
+        """
+        Suggest optimal formations based on available elite/good performers.
+
+        Args:
+            result: SquadAnalysisResult object
+            top_n: Number of top formations to return
+
+        Returns:
+            List of formation suggestions with scores
+        """
+        # Common FM24 formations with position requirements
+        FORMATIONS = [
+            {
+                "name": "4-2-3-1 DM AM Wide",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 2,
+                    PositionCategory.AM: 1,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 1
+                }
+            },
+            {
+                "name": "4-3-3 DM Wide",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 1,
+                    PositionCategory.CM: 2,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 1
+                }
+            },
+            {
+                "name": "4-3-2-1 DM AM Narrow",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 1,
+                    PositionCategory.CM: 2,
+                    PositionCategory.AM: 2,
+                    PositionCategory.ST: 1
+                }
+            },
+            {
+                "name": "5-2-2-1 DM AM",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 3,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 2,
+                    PositionCategory.AM: 2,
+                    PositionCategory.ST: 1
+                }
+            },
+            {
+                "name": "5-2-3 DM Wide",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 3,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 2,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 1
+                }
+            },
+            {
+                "name": "4-4-2",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.CM: 2,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 2
+                }
+            },
+            {
+                "name": "4-2-4 DM Wide",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 2,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 2
+                }
+            },
+            {
+                "name": "4-4-2 Diamond Narrow",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 1,
+                    PositionCategory.CM: 2,
+                    PositionCategory.AM: 1,
+                    PositionCategory.ST: 2
+                }
+            },
+            {
+                "name": "4-2-2-2 DM AM Narrow",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 2,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 2,
+                    PositionCategory.AM: 2,
+                    PositionCategory.ST: 2
+                }
+            },
+            {
+                "name": "5-3-2 DM WB",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 3,
+                    PositionCategory.FB: 2,
+                    PositionCategory.DM: 1,
+                    PositionCategory.CM: 2,
+                    PositionCategory.ST: 2
+                }
+            },
+            {
+                "name": "3-4-3",
+                "positions": {
+                    PositionCategory.GK: 1,
+                    PositionCategory.CB: 3,
+                    PositionCategory.FB: 2,
+                    PositionCategory.CM: 2,
+                    PositionCategory.W: 2,
+                    PositionCategory.ST: 1
+                }
+            }
+        ]
+
+        # Count elite/good players by position
+        position_quality = {}
+        for pos in PositionCategory:
+            elite_count = len([a for a in result.player_analyses
+                             if a.player.get_position_category() == pos
+                             and a.verdict == PerformanceVerdict.ELITE])
+            good_count = len([a for a in result.player_analyses
+                            if a.player.get_position_category() == pos
+                            and a.verdict == PerformanceVerdict.GOOD])
+            position_quality[pos] = {
+                'elite': elite_count,
+                'good': good_count,
+                'total': elite_count + good_count
+            }
+
+        # Get total player count by position (including all performance levels)
+        position_totals = {}
+        for pos in PositionCategory:
+            total = len([a for a in result.player_analyses
+                        if a.player.get_position_category() == pos])
+            position_totals[pos] = total
+
+        # Score each formation
+        scored_formations = []
+        for formation in FORMATIONS:
+            score = 0
+            can_fill = True
+            position_breakdown = []
+
+            for pos, required in formation['positions'].items():
+                available = position_quality.get(pos, {})
+                elite_count = available.get('elite', 0)
+                good_count = available.get('good', 0)
+                total_available = position_totals.get(pos, 0)
+
+                # Check if we have enough total players (any quality)
+                if total_available < required:
+                    can_fill = False
+                    break
+
+                # Score based on quality (elite = 3 points, good = 2 points, others = 1 point)
+                elite_filled = min(elite_count, required)
+                good_filled = min(good_count, max(0, required - elite_filled))
+                others_filled = max(0, required - elite_filled - good_filled)
+
+                position_score = (elite_filled * 3) + (good_filled * 2) + (others_filled * 1)
+                score += position_score
+
+                position_breakdown.append({
+                    'position': pos.value,
+                    'required': required,
+                    'elite': elite_count,
+                    'good': good_count,
+                    'total_available': total_available
+                })
+
+            if can_fill:
+                scored_formations.append({
+                    'name': formation['name'],
+                    'score': score,
+                    'breakdown': position_breakdown
+                })
+
+        # Sort by score (descending) and return top N
+        scored_formations.sort(key=lambda x: x['score'], reverse=True)
+        return scored_formations[:top_n]
