@@ -64,7 +64,13 @@ def capacity_tracker():
                             validated_vacancies = []
                             for vacancy in vacancies:
                                 try:
-                                    validated = VacancySchema(**vacancy)
+                                    # Map dictionary keys to VacancySchema field names
+                                    validated = VacancySchema(
+                                        name=vacancy['vacancy_name'],
+                                        role_type=vacancy['role_type'],
+                                        is_internal=vacancy.get('is_internal', False),
+                                        stage=vacancy.get('stage', '')
+                                    )
                                     validated_vacancies.append({
                                         'vacancy_name': validated.name,
                                         'role_type': validated.role_type.value,
