@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Squad Audit Tracker View for Football Manager
+Import this view in FM to export the exact columns needed for squad analysis.
+
+Instructions:
+1. Download this file
+2. Place it in: Documents/Sports Interactive/Football Manager 2024/views/squad
+3. In FM, go to Squad screen → Load View → "Squad Audit View"
+4. Right-click column headers → Export → Web Page
+5. Upload the HTML file to the Squad Audit Tracker
+-->
+<panel>
+  <layout class="stick_to_sides_attachment" layout_width="-1" layout_height="-1" alignment="all"/>
+  <record>
+    <list id="column_table_settings">
+      <!-- Position -->
+      <record>
+        <string id="field_id" value="Spsn"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="50"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Status Flag (Inf) -->
+      <record>
+        <string id="field_id" value="Sinf"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="40"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Name -->
+      <record>
+        <string id="field_id" value="Pnam"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="150"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Exact Position -->
+      <record>
+        <string id="field_id" value="Spos"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="80"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Apps (Starts + Subs) -->
+      <record>
+        <string id="field_id" value="apps"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Goals -->
+      <record>
+        <string id="field_id" value="gls"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="50"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Assists -->
+      <record>
+        <string id="field_id" value="assi"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="50"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Average Rating -->
+      <record>
+        <string id="field_id" value="Avrg"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Wage -->
+      <record>
+        <string id="field_id" value="wage"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="90"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Age -->
+      <record>
+        <string id="field_id" value="Page"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="40"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Contract Expires -->
+      <record>
+        <string id="field_id" value="Pexp"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="90"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Interceptions/90 -->
+      <record>
+        <string id="field_id" value="intr"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- xG (Expected Goals) -->
+      <record>
+        <string id="field_id" value="xG90"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Shots/90 -->
+      <record>
+        <string id="field_id" value="shot"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Chances Created/90 -->
+      <record>
+        <string id="field_id" value="chcr"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Dribbles/90 -->
+      <record>
+        <string id="field_id" value="drib"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Blocks/90 -->
+      <record>
+        <string id="field_id" value="blks"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Key Tackles/90 -->
+      <record>
+        <string id="field_id" value="ktck"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Header Success % -->
+      <record>
+        <string id="field_id" value="hdrs"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Tackle Rate -->
+      <record>
+        <string id="field_id" value="tckr"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Pass Completion % -->
+      <record>
+        <string id="field_id" value="pasc"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Conceded/90 (GK) -->
+      <record>
+        <string id="field_id" value="conc"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- xG Prevented (GK) -->
+      <record>
+        <string id="field_id" value="xGP"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="70"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+
+      <!-- Save % (GK) -->
+      <record>
+        <string id="field_id" value="savp"/>
+        <flags id="field_flags" value="2"/>
+        <integer id="width" value="60"/>
+        <boolean id="sort_disabled" value="false"/>
+      </record>
+    </list>
+
+    <integer id="sort_functional_column" value="0"/>
+    <string id="sort_descending" value="false"/>
+  </record>
+</panel>

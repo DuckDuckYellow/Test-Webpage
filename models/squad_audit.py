@@ -106,48 +106,51 @@ class Player:
     xgp: Optional[float] = None
     sv_pct: Optional[float] = None
 
-    def get_position_category(self) -> PositionCategory:
+    def _parse_position_string(self, pos_str: str) -> PositionCategory:
         """
-        Determine the position category based on position_selected.
+        Parse a single position string to a PositionCategory.
+
+        Args:
+            pos_str: Position string (e.g., "ST (C)", "AM (RL)", "GK")
 
         Returns:
-            PositionCategory enum value (GK, CB, FB, DM, CM, AM, W, ST)
+            PositionCategory enum value
         """
-        pos = self.position_selected.upper()
+        pos = pos_str.upper().strip()
 
         # Goalkeeper
-        if pos == "GK":
+        if pos.startswith("GK"):
             return PositionCategory.GK
 
         # Center Backs
-        if pos in ["DCR", "DCL", "DC", "D (C)"]:
+        if any(x in pos for x in ["DC", "D (C)"]):
             return PositionCategory.CB
 
         # Fullbacks
-        if pos in ["DR", "DL"] or "D/WB" in pos or "WB" in pos:
+        if any(x in pos for x in ["DR", "DL", "D/WB", "WB"]) and "DM" not in pos:
             return PositionCategory.FB
 
         # Defensive Midfield
-        if pos == "DM" or "DM" in pos:
+        if "DM" in pos:
             return PositionCategory.DM
 
         # Central Midfield
-        if pos in ["MCR", "MCL", "MC", "M (C)"]:
+        if any(x in pos for x in ["MC", "M (C)"]):
             return PositionCategory.CM
 
         # Attacking Midfield
-        if pos in ["AMR", "AML", "AM"] or "AM" in pos:
+        if "AM" in pos:
             return PositionCategory.AM
 
         # Wingers
-        if "W" in pos and "WB" not in pos:  # Exclude wingbacks
+        if "W" in pos and "WB" not in pos and "DM" not in pos:
             return PositionCategory.W
 
         # Strikers
-        if pos in ["STC", "S (C)", "ST"] or "ST" in pos:
+        if any(x in pos for x in ["ST", "S (C)"]):
             return PositionCategory.ST
 
-        # Default fallback based on first letter
+        # Default fallback
         if pos.startswith("D"):
             return PositionCategory.CB
         elif pos.startswith("M"):
@@ -155,7 +158,109 @@ class Player:
         elif pos.startswith("S"):
             return PositionCategory.ST
         else:
-            return PositionCategory.CM  # Safe default
+            return PositionCategory.CM
+
+    def _evaluate_position_fit(self, position_cat: PositionCategory) -> float:
+        """
+        Evaluate how well this player's stats fit a given position.
+
+        Returns a score based on the player's key metrics for that position.
+        Higher is better.
+
+        Args:
+            position_cat: Position category to evaluate
+
+        Returns:
+            Fitness score (sum of normalized key metrics)
+        """
+        # Position-specific key metrics (same as in SquadAuditService)
+        position_metrics = {
+            PositionCategory.GK: ['sv_pct', 'xgp', 'pas_pct', 'av_rat'],
+            PositionCategory.CB: ['k_tck_90', 'int_90', 'hdr_pct', 'pas_pct'],
+            PositionCategory.FB: ['k_tck_90', 'drb_90', 'pas_pct', 'blk_90'],
+            PositionCategory.DM: ['k_tck_90', 'int_90', 'pas_pct', 'av_rat'],
+            PositionCategory.CM: ['pas_pct', 'k_tck_90', 'drb_90', 'shot_90'],
+            PositionCategory.AM: ['ch_c_90', 'drb_90', 'xg', 'pas_pct'],
+            PositionCategory.W: ['drb_90', 'ch_c_90', 'shot_90', 'pas_pct'],
+            PositionCategory.ST: ['shot_90', 'xg', 'ch_c_90', 'av_rat']
+        }
+
+        metrics = position_metrics.get(position_cat, [])
+        score = 0.0
+        count = 0
+
+        for metric in metrics:
+            value = getattr(self, metric, None)
+            if value is not None and value > 0:
+                score += value
+                count += 1
+
+        # Return average of available metrics (or 0 if none)
+        return score / count if count > 0 else 0.0
+
+    def get_position_category(self) -> PositionCategory:
+        """
+        Determine the best-fit position category for the player.
+
+        For players who can play multiple positions (e.g., "AM (RL), ST (C)"),
+        evaluates which position best suits their statistical profile.
+
+        Returns:
+            PositionCategory enum value (GK, CB, FB, DM, CM, AM, W, ST)
+        """
+        # Parse all possible positions from the position field
+        # Position can be like "AM (RL), ST (C)" or "ST (C)"
+        position_strings = [p.strip() for p in self.position.split(',')]
+
+        # Map each position string to a PositionCategory
+        possible_positions = []
+        for pos_str in position_strings:
+            try:
+                pos_cat = self._parse_position_string(pos_str)
+                if pos_cat not in possible_positions:
+                    possible_positions.append(pos_cat)
+            except:
+                continue
+
+        # If no valid positions found, fall back to position_selected
+        if not possible_positions:
+            pos = self.position_selected.upper()
+
+            # Simple mapping for position_selected
+            if pos == "GK":
+                return PositionCategory.GK
+            elif pos in ["DCR", "DCL", "DC"]:
+                return PositionCategory.CB
+            elif pos in ["DR", "DL"] or "WB" in pos:
+                return PositionCategory.FB
+            elif "DM" in pos:
+                return PositionCategory.DM
+            elif pos in ["MCR", "MCL", "MC"]:
+                return PositionCategory.CM
+            elif pos in ["AMR", "AML", "AM"] or "AM" in pos:
+                return PositionCategory.AM
+            elif "W" in pos and "WB" not in pos:
+                return PositionCategory.W
+            elif pos in ["STC", "ST"] or "ST" in pos:
+                return PositionCategory.ST
+            else:
+                return PositionCategory.CM  # Safe default
+
+        # If only one position, return it
+        if len(possible_positions) == 1:
+            return possible_positions[0]
+
+        # Multiple positions possible - evaluate best fit based on stats
+        best_position = possible_positions[0]
+        best_score = self._evaluate_position_fit(best_position)
+
+        for position in possible_positions[1:]:
+            score = self._evaluate_position_fit(position)
+            if score > best_score:
+                best_score = score
+                best_position = position
+
+        return best_position
 
     def get_total_apps(self) -> int:
         """Get total appearances (starts + subs)."""
