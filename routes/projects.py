@@ -5,10 +5,10 @@ Handles all project-related routes including the Recruitment Capacity Tracker.
 """
 
 from flask import Blueprint, render_template, request, send_file, current_app, session, make_response
-from flask_wtf.csrf import csrf_exempt
 from io import BytesIO, StringIO
 import csv
 from pydantic import ValidationError
+from app import csrf
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/projects')
 
@@ -401,7 +401,7 @@ def debug_session():
 
 
 @projects_bp.route("/squad-audit-tracker/recalculate", methods=["POST"])
-@csrf_exempt  # Exempt from CSRF for AJAX JSON API endpoint
+@csrf.exempt  # Exempt from CSRF for AJAX JSON API endpoint
 def recalculate_player_position():
     """
     Recalculate analysis for a player with a new position.
