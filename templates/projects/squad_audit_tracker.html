@@ -680,6 +680,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'same-origin',  // Include cookies in request
                 body: JSON.stringify({
                     player_name: playerName,
                     new_position: newPosition
