@@ -6,10 +6,11 @@ A personal website featuring Football Manager save stories and useful tools. Bui
 
 ## Tech Stack
 
-- **Backend:** Python 3, Flask
+- **Backend:** Python 3, Flask, Pydantic (validation), OpenPyXL, BeautifulSoup4
 - **Frontend:** HTML5, CSS3, Bootstrap 5
 - **Templating:** Jinja2
-- **Storage:** Plain text files (no database)
+- **Testing:** Pytest
+- **Storage:** Plain text files (blog), In-memory/CSV (projects)
 
 ## Installation & Setup
 
@@ -52,23 +53,20 @@ Open [https://newtonsrepository.dev/](https://newtonsrepository.dev/)
 
 ```
 Test-Webpage/
-├── app.py              # Main Flask application and routes
+├── app.py              # Application factory
+├── config.py           # Configuration management
+├── extensions.py       # Flask extensions
 ├── requirements.txt    # Python dependencies
 ├── README.md           # This file
-├── TODO.md             # Development roadmap
+├── routes/             # Blueprint definitions
+├── services/           # Business logic layer
+├── models/             # Data models (Pydantic/Dataclasses)
+├── analyzers/          # Analysis engines
 ├── templates/          # Jinja2 HTML templates
-│   ├── base.html       # Base template with nav, footer, CSS
-│   ├── index.html      # Homepage listing all articles
-│   ├── article.html    # Individual article display
-│   ├── about.html      # About page
-│   └── 404.html        # Custom error page
-└── articles/           # Article content as text files
-    ├── article1.txt    # Part 1: The Journey Begins
-    ├── article2.txt    # Part 2: First Season Struggles
-    ├── article3.txt    # Part 3: Transfer Window Rebuild
-    ├── article4.txt    # Part 4: The Turning Point
-    ├── article5.txt    # Part 5: Promotion Push
-    └── article6.txt    # Part 6: Glory Day
+│   ├── base.html       # Base template
+│   ├── projects/       # Project-specific templates
+│   └── ...
+└── articles/           # Article content
 ```
 
 ## Features
@@ -81,6 +79,21 @@ Test-Webpage/
 - **Mobile responsive design** using Bootstrap 5
 - **Clean typography** with comfortable line-height for readability
 - **Custom 404 page** with navigation back to content
+
+## Projects
+
+### Squad Audit Tracker
+Advanced tool for analyzing Football Manager squads:
+- **Per-90 Metrics**: Normalized performance analysis across 8 position groups.
+- **Role Evaluation**: Automatically evaluates players against 12 tactical roles (e.g., Ball Playing Defender, Mezzala).
+- **Role Recommendations**: Suggests optimal role changes based on player attributes and performance.
+- **Value Scoring**: Identifies undervalued and overvalued players based on wage vs performance.
+
+### Recruitment Capacity Tracker
+Resource planning tool for recruitment teams:
+- **Workload Analysis**: Calculates recruiter capacity based on vacancy types.
+- **Excel Integration**: Supports bulk upload via Excel templates.
+- **Team Summary**: Aggregates team-wide capacity metrics.
 
 ## How to Add New Articles
 

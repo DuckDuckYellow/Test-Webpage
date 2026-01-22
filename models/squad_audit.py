@@ -6,7 +6,7 @@ including players, squads, and analysis results.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from enum import Enum
 
 
@@ -91,7 +91,7 @@ class Player:
     expires: str
     inf: str
 
-    # Per-90 statistics
+    # Per-90 statistics (old format - kept for backward compatibility)
     int_90: Optional[float] = None
     xg: Optional[float] = None
     shot_90: Optional[float] = None
@@ -105,6 +105,32 @@ class Player:
     con_90: Optional[float] = None
     xgp: Optional[float] = None
     sv_pct: Optional[float] = None
+
+    # New format (V2) fields - comprehensive per-90 metrics
+    mins: Optional[int] = None                      # Total minutes played
+    xgp_90: Optional[float] = None                  # xG Prevented per 90
+    tck_90: Optional[float] = None                  # Tackles per 90
+    sht_90: Optional[float] = None                  # Shots on Target per 90
+    hdrs_w_90: Optional[float] = None               # Headers Won per 90
+    sprints_90: Optional[float] = None              # Sprints per 90
+    xa_90: Optional[float] = None                   # xAssists per 90
+    np_xg_90: Optional[float] = None                # Non-Penalty xG per 90
+    op_kp_90: Optional[float] = None                # Open Play Key Passes per 90
+    conv_pct: Optional[float] = None                # Conversion %
+    pr_passes_90: Optional[float] = None            # Progressive Passes per 90
+    clr_90: Optional[float] = None                  # Clearances per 90
+    pres_c_90: Optional[float] = None               # Pressures Completed per 90
+    op_crs_c_90: Optional[float] = None             # Open Play Crosses Completed per 90
+    itc: Optional[int] = None                       # Information/stat from FM
+    shts_blckd_90: Optional[float] = None           # Shots Blocked per 90
+    
+    # Role Evaluation Fields (Task 2.3)
+    all_role_scores: List = field(default_factory=list)      # List[RoleScore]
+    best_role: Any = None                                    # RoleScore (Global Best)
+    current_role_score: Any = None                           # RoleScore (Best in Current Position)
+    recommended_role: Any = None                             # RoleScore (Alternative Recommendation)
+    role_change_confidence: float = 0.0
+    role_change_reason: str = ""
 
     def _parse_position_string(self, pos_str: str) -> PositionCategory:
         """
@@ -309,6 +335,104 @@ class Player:
             "Lst": StatusFlag.DEPARTED,
         }
         return flag_map.get(self.inf, StatusFlag.NONE)
+
+    def get_normalized_metrics(self) -> Dict[str, float]:
+        """
+        Get standardized metric dictionary for role evaluation.
+
+        Returns metrics with consistent naming regardless of old/new format.
+        Prefers new format (V2) metrics when available, falls back to old format.
+
+        Returns:
+            Dictionary with standardized metric names and values
+        """
+        metrics = {}
+
+        # Tackles - prefer new format tck_90, fallback to k_tck_90
+        metrics['tackles_90'] = self.tck_90 or self.k_tck_90 or 0.0
+
+        # Headers - prefer new format
+        metrics['headers_won_90'] = self.hdrs_w_90 or 0.0
+        metrics['header_win_pct'] = self.hdr_pct or 0.0
+
+        # Clearances
+        metrics['clearances_90'] = self.clr_90 or 0.0
+
+        # Interceptions
+        metrics['interceptions_90'] = self.int_90 or 0.0
+
+        # Blocks - prefer new format shts_blckd_90, fallback to blk_90
+        metrics['blocks_90'] = self.shts_blckd_90 or self.blk_90 or 0.0
+
+        # Progressive passes
+        metrics['prog_passes_90'] = self.pr_passes_90 or 0.0
+
+        # Pressures
+        metrics['pressures_90'] = self.pres_c_90 or 0.0
+
+        # Dribbles
+        metrics['dribbles_90'] = self.drb_90 or 0.0
+
+        # Key passes - prefer new format op_kp_90, fallback to ch_c_90
+        metrics['key_passes_90'] = self.op_kp_90 or self.ch_c_90 or 0.0
+
+        # xAssists
+        metrics['xassists_90'] = self.xa_90 or 0.0
+
+        # Crosses
+        metrics['crosses_90'] = self.op_crs_c_90 or 0.0
+
+        # Sprints
+        metrics['sprints_90'] = self.sprints_90 or 0.0
+
+        # Shots on target - prefer new format sht_90, fallback to shot_90
+        metrics['shots_on_target_90'] = self.sht_90 or self.shot_90 or 0.0
+
+        # xG - prefer new format np_xg_90, fallback to xg
+        metrics['xg_90'] = self.np_xg_90 or self.xg or 0.0
+
+        # Conversion rate
+        metrics['conversion_pct'] = self.conv_pct or 0.0
+
+        # Pass completion
+        metrics['pass_pct'] = self.pas_pct or 0.0
+
+        # GK specific
+        metrics['xgp_90'] = self.xgp_90 or self.xgp or 0.0
+        metrics['conceded_90'] = self.con_90 or 0.0
+        metrics['save_pct'] = self.sv_pct or 0.0
+
+        return metrics
+    
+    def evaluate_roles(self):
+        """
+        Evaluate and store all role scores using the Recommendation Engine.
+        """
+        # Local import to avoid circular dependency
+        from analyzers.role_recommendation_engine import RoleRecommendationEngine
+        
+        engine = RoleRecommendationEngine()
+        
+        # 1. Evaluate all roles
+        self.all_role_scores = engine.evaluate_all_roles(self)
+        
+        # 2. Identify global best role
+        self.best_role = self.all_role_scores[0]
+        
+        # 3. Identify best role in current position (for context)
+        self.current_role_score = engine.get_best_role_in_current_position(self, self.all_role_scores)
+        
+        # 4. Get recommendations (alternatives)
+        recommendations = engine.get_role_recommendations(self)
+        
+        if recommendations:
+            top_rec = recommendations[0]
+            self.recommended_role = top_rec
+            self.role_change_confidence = top_rec.overall_score
+            
+            # Generate reason comparing to current best position role (or global best if undefined)
+            compare_to = self.current_role_score if self.current_role_score else self.best_role
+            self.role_change_reason = engine.evaluator.generate_role_recommendation_text(top_rec, compare_to)
 
     def get_wage_formatted(self) -> str:
         """Format wage as '£XX,XXX p/w'."""

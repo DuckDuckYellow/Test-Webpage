@@ -1,0 +1,124 @@
+<div class="modal-header border-bottom-0 pb-0">
+    <h5 class="modal-title" id="roleDetailTitle">
+        <span class="fw-bold">{{ player.name }}</span>
+        <span class="text-muted ms-2 fs-6">{{ player.position }}</span>
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<div class="modal-body">
+    <div class="row mb-4">
+        <!-- Best Role -->
+        <div class="col-md-6 border-end">
+            <h6 class="text-uppercase text-muted small mb-3">Best Role (Current)</h6>
+            <div class="d-flex align-items-center mb-3">
+                <div class="display-6 fw-bold text-{{ 'success' if player.best_role.tier == 'ELITE' else 'primary' }}">
+                    {{ player.best_role.role }}
+                </div>
+                <div class="ms-3 text-center">
+                    <div class="h3 mb-0">{{ player.best_role.overall_score|round|int }}</div>
+                    <span class="badge bg-{{ 'success' if player.best_role.tier == 'ELITE' else 'secondary' }}">
+                        {{ player.best_role.tier }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="description small text-muted mb-3">
+                <i>Based on key metrics for this role.</i>
+            </div>
+
+            <h6 class="text-uppercase text-muted small mb-2">Key Strengths</h6>
+            <div class="d-flex flex-wrap gap-1 mb-3">
+                {% for strength in player.best_role.strengths %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                    {{ strength }}
+                </span>
+                {% else %}
+                <span class="text-muted small">No specific elite strengths identified.</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Recommended Role (if any) -->
+        <div class="col-md-6 ps-4">
+            <h6 class="text-uppercase text-muted small mb-3">Recommended Change</h6>
+            {% if player.recommended_role %}
+            <div class="card border-primary bg-primary bg-opacity-10 mb-3">
+                <div class="card-body py-2">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h5 class="mb-0 text-primary fw-bold">{{ player.recommended_role.role }}</h5>
+                            <small class="text-muted">{{ player.recommended_role.tier }} Fit</small>
+                        </div>
+                        <div class="text-end">
+                            <h3 class="mb-0 text-primary">{{ player.recommended_role.overall_score|round|int }}</h3>
+                            <small class="text-success fw-bold">
+                                +{{ (player.recommended_role.overall_score - player.best_role.overall_score)|round|int
+                                }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <p class="small mb-3">
+                <i class="bi bi-info-circle-fill text-primary"></i>
+                {{ player.role_change_reason }}
+            </p>
+
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-check-circle fs-2 mb-2"></i>
+                <p>No role change recommended.</p>
+                <small>Player is best suited to their current role.</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Full Role Breakdown -->
+    <h6 class="text-uppercase text-muted small mb-3 border-top pt-3">Role Suitability Breakdown</h6>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Role</th>
+                    <th class="text-center">Score</th>
+                    <th class="text-center">Tier</th>
+                    <th>Key Metrics Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for score in player.all_role_scores %}
+                <tr
+                    class="{{ 'table-success' if score.role == player.best_role.role }} {{ 'table-primary' if player.recommended_role and score.role == player.recommended_role.role }}">
+                    <td class="fw-semibold">{{ score.role }}</td>
+                    <td class="text-center fw-bold">{{ score.overall_score|round(1) }}</td>
+                    <td class="text-center mb-0">
+                        <span
+                            class="badge bg-{{ 'success' if score.tier == 'ELITE' else ('info' if score.tier == 'GOOD' else ('warning' if score.tier == 'AVERAGE' else 'danger')) }} rounded-pill"
+                            style="font-size:0.7em">
+                            {{ score.tier }}
+                        </span>
+                    </td>
+                    <td class="small">
+                        <!-- Mini visualization of top 3 metrics -->
+                        {% set count = 0 %}
+                        {% for metric, result in score.metric_scores.items() %}
+                        {% if count < 3 %} <span class="d-inline-block me-2" title="{{ metric }}: {{ result.value }}">
+                            <span class="text-muted" style="font-size:0.8em">{{ metric[:3] }}</span>
+                            <span
+                                class="fw-bold text-{{ 'success' if result.tier == 'ELITE' else ('danger' if result.tier == 'CRITICAL' else 'dark') }}">
+                                {{ result.score|round }}
+                            </span>
+                            </span>
+                            {% set count = count + 1 %}
+                            {% endif %}
+                            {% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

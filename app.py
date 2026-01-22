@@ -14,14 +14,10 @@ from services import BlogService, CapacityService, FileService
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from extensions import csrf, limiter
 
 # Initialize extensions (will be attached to app in create_app)
-csrf = CSRFProtect()
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",
-)
+# csrf and limiter are now imported from extensions.py
 
 # Global data structures (accessible to blueprints via app context)
 BLOG_CATEGORIES = {}

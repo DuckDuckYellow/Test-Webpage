@@ -28,7 +28,8 @@
                 <div class="card-body p-4">
                     <h2 class="h5 mb-3">About This Tool</h2>
                     <p class="mb-2">
-                        Advanced Football Manager squad analysis that uses per-90 minute metrics to identify underutilized elite performers and overvalued assets.
+                        Advanced Football Manager squad analysis that uses per-90 minute metrics to identify
+                        underutilized elite performers and overvalued assets.
                     </p>
                     <div class="row">
                         <div class="col-md-6">
@@ -43,10 +44,13 @@
                         <div class="col-md-6">
                             <h6 class="fw-semibold">Export Your Squad Data:</h6>
                             <ul class="small mb-3">
-                                <li><strong>Step 1:</strong> <a href="{{ url_for('static', filename='Squad Audit View.FMF') }}" download class="fw-bold text-decoration-underline">Download Squad Audit View.FMF</a></li>
+                                <li><strong>Step 1:</strong> <a
+                                        href="{{ url_for('static', filename='Squad Audit View.FMF') }}" download
+                                        class="fw-bold text-decoration-underline">Download Squad Audit View.FMF</a></li>
                                 <li><strong>Step 2:</strong> Import view in FM (Documents/SI/FM 2024/views/squad)</li>
                                 <li><strong>Step 3:</strong> Load view in Squad screen</li>
-                                <li><strong>Step 4:</strong> Right-click headers → <strong>Export</strong> → <strong>Web Page</strong></li>
+                                <li><strong>Step 4:</strong> Right-click headers → <strong>Export</strong> → <strong>Web
+                                        Page</strong></li>
                                 <li><strong>Step 5:</strong> Upload the HTML file below</li>
                             </ul>
                         </div>
@@ -77,16 +81,19 @@
                 <div class="card-body p-4">
                     <h5 class="mb-3">Upload FM Squad Export</h5>
                     <p class="text-muted mb-4">
-                        Upload your Football Manager squad export HTML file for analysis. The tool will parse player statistics and generate comprehensive insights.
+                        Upload your Football Manager squad export HTML file for analysis. The tool will parse player
+                        statistics and generate comprehensive insights.
                     </p>
 
                     <form method="POST" enctype="multipart/form-data" id="squadUploadForm">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
                         <div class="mb-4">
                             <label for="htmlFile" class="form-label fw-semibold">Choose HTML File</label>
-                            <input type="file" class="form-control form-control-lg" id="htmlFile" name="html_file" accept=".html" required>
-                            <div class="form-text">Export from FM Squad View → Right-click headers → Export → Web Page (.html)</div>
+                            <input type="file" class="form-control form-control-lg" id="htmlFile" name="html_file"
+                                accept=".html" required>
+                            <div class="form-text">Export from FM Squad View → Right-click headers → Export → Web Page
+                                (.html)</div>
                         </div>
 
                         <div class="d-grid">
@@ -143,7 +150,8 @@
                         </div>
                         <div class="col-md-3">
                             <div class="p-2">
-                                <h3 class="text-warning mb-0">{{ analysis_result.get_transfer_listed_elite()|length }}</h3>
+                                <h3 class="text-warning mb-0">{{ analysis_result.get_transfer_listed_elite()|length }}
+                                </h3>
                                 <small class="text-muted">Elite on Transfer List</small>
                             </div>
                         </div>
@@ -207,49 +215,31 @@
                                     </th>
                                     <th class="sortable text-end" data-sort="value" style="cursor: pointer;">
                                         Value Score
-                                        <i class="bi bi-info-circle text-muted"
-                                           data-bs-toggle="tooltip"
-                                           data-bs-placement="top"
-                                           title="Value Score = (Performance Index / Wage Index) × 100. Higher is better. 150+ = Elite value, 120-150 = Good value, 100-120 = Expected, 80-100 = Below expected, <80 = Poor value"></i>
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                            data-bs-placement="top"
+                                            title="Value Score = (Role Score / Wage Index) × 100"></i>
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
-                                    <th class="sortable" data-sort="verdict" style="cursor: pointer;">
-                                        Performance
-                                        <i class="bi bi-info-circle text-muted"
-                                           data-bs-toggle="tooltip"
-                                           data-bs-placement="top"
-                                           title="Performance Index = (Player Metrics / Position Average) × 100. Elite: ≥120, Good: ≥100, Average: ≥85, Poor: <85"></i>
+                                    <th class="sortable" data-sort="role" style="cursor: pointer;">
+                                        Best Role
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
+                                    <th>Suggested Role</th>
                                     <th class="text-center">Flag</th>
                                     <th class="text-end">Wage</th>
                                     <th class="text-center">Contract</th>
-                                    <th>Top Metrics</th>
-                                    <th>Recommendation</th>
+                                    <th>Stats</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for analysis in analysis_result.get_sorted_by_value() %}
-                                <tr class="player-row"
-                                    data-name="{{ analysis.player.name|lower }}"
-                                    data-position="{{ analysis.player.get_position_category().value }}"
-                                    data-verdict="{{ analysis.verdict.value }}">
+                                <tr class="player-row" data-name="{{ analysis.player.name|lower }}"
+                                    data-position="{{ analysis.player.best_role.role }}"
+                                    data-verdict="{{ analysis.player.best_role.tier }}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
-                                        {% set all_positions = analysis.player.get_all_possible_positions() %}
-                                        {% if all_positions|length > 1 %}
-                                            <select class="form-select form-select-sm position-selector"
-                                                    data-player-name="{{ analysis.player.name }}"
-                                                    style="min-width: 70px;">
-                                                {% for pos in all_positions %}
-                                                <option value="{{ pos.value }}" {% if pos == analysis.player.get_position_category() %}selected{% endif %}>
-                                                    {{ pos.value }}
-                                                </option>
-                                                {% endfor %}
-                                            </select>
-                                        {% else %}
-                                            <span class="badge bg-secondary">{{ analysis.player.get_position_category().value }}</span>
-                                        {% endif %}
+                                        <span class="badge bg-secondary">{{ analysis.player.position_selected }}</span>
                                     </td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end" data-value="{{ analysis.value_score }}">
@@ -257,47 +247,64 @@
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
                                     </td>
+
+                                    <!-- Best Role -->
                                     <td>
-                                        {% if analysis.verdict.value == 'ELITE' %}
-                                            <span class="badge bg-success">{{ analysis.verdict.value }}</span>
-                                        {% elif analysis.verdict.value == 'GOOD' %}
-                                            <span class="badge bg-info">{{ analysis.verdict.value }}</span>
-                                        {% elif analysis.verdict.value == 'AVERAGE' %}
-                                            <span class="badge bg-warning">{{ analysis.verdict.value }}</span>
+                                        {% set role = analysis.player.best_role %}
+                                        <div class="role-badge role-{{ role.tier|lower }}"
+                                            onclick="openRoleModal('{{ analysis.player.name|replace("'", "\\'") }}')"
+                                            style="cursor: pointer;">
+                                            {{ role.role }}
+                                            <span class="role-score">({{ role.overall_score|round }})</span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Suggested Role -->
+                                    <td>
+                                        {% if analysis.player.recommended_role %}
+                                        {% set rec = analysis.player.recommended_role %}
+                                        <div class="role-suggestion">
+                                            <span class="suggested-badge">{{ rec.role }}</span>
+                                            <small class="text-success fw-bold">+{{ (rec.overall_score -
+                                                analysis.player.best_role.overall_score)|round|int }}</small>
+                                            <div class="reason">{{ analysis.player.role_change_reason }}</div>
+                                        </div>
                                         {% else %}
-                                            <span class="badge bg-danger">{{ analysis.verdict.value }}</span>
+                                        <span class="text-muted small">-</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">
                                         {% if analysis.player.inf %}
-                                            <span class="badge bg-dark">{{ analysis.player.inf }}</span>
+                                        <span class="badge bg-dark">{{ analysis.player.inf }}</span>
                                         {% else %}
-                                            <span class="text-muted">-</span>
+                                        <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
-                                    <td class="text-center small {% if analysis.contract_warning %}text-danger fw-bold{% endif %}">
+                                    <td
+                                        class="text-center small {% if analysis.contract_warning %}text-danger fw-bold{% endif %}">
                                         {{ analysis.player.expires }}
                                         {% if analysis.contract_warning %}
-                                            <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
                                         {% endif %}
                                     </td>
                                     <td class="small">
                                         {% if analysis.top_metrics %}
-                                            {{ analysis.top_metrics|join(' | ') }}
+                                        {{ analysis.top_metrics|join(' | ') }}
                                         {% else %}
-                                            <span class="text-muted">N/A</span>
+                                        <span class="text-muted">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td class="small">
                                         {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
                                         {% if rec_parts|length == 2 %}
-                                            <div class="d-flex flex-column gap-1">
-                                                <div><span class="badge bg-primary text-wrap">{{ rec_parts[0] }}</span></div>
-                                                <div class="text-muted">{{ rec_parts[1] }}</div>
+                                        <div class="d-flex flex-column gap-1">
+                                            <div><span class="badge bg-primary text-wrap">{{ rec_parts[0] }}</span>
                                             </div>
+                                            <div class="text-muted">{{ rec_parts[1] }}</div>
+                                        </div>
                                         {% else %}
-                                            {{ analysis.recommendation }}
+                                        {{ analysis.recommendation }}
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -310,7 +317,8 @@
                 <div class="card-footer bg-white text-muted small">
                     <div class="row">
                         <div class="col-md-6">
-                            Showing <strong id="visibleCount">{{ analysis_result.total_players }}</strong> of {{ analysis_result.total_players }} players
+                            Showing <strong id="visibleCount">{{ analysis_result.total_players }}</strong> of {{
+                            analysis_result.total_players }} players
                         </div>
                         <div class="col-md-6 text-md-end">
                             Sorted by <strong id="currentSort">Value Score (Descending)</strong>
@@ -328,7 +336,8 @@
             <div class="card border-0 shadow-sm border-start border-success border-4">
                 <div class="card-body">
                     <h5 class="card-title text-success">
-                        <i class="bi bi-star-fill"></i> Elite Performers ({{ analysis_result.get_elite_players()|length }})
+                        <i class="bi bi-star-fill"></i> Elite Performers ({{ analysis_result.get_elite_players()|length
+                        }})
                     </h5>
                     <p class="text-muted small mb-3">Players performing significantly above their position averages</p>
                     <div class="row">
@@ -336,7 +345,8 @@
                         <div class="col-md-6 mb-3">
                             <div class="d-flex align-items-start">
                                 <div class="flex-shrink-0">
-                                    <span class="badge bg-success rounded-pill">{{ analysis.player.get_position_category().value }}</span>
+                                    <span class="badge bg-success rounded-pill">{{
+                                        analysis.player.get_position_category().value }}</span>
                                 </div>
                                 <div class="flex-grow-1 ms-3">
                                     <h6 class="mb-1">{{ analysis.player.name }} ({{ analysis.player.age }})</h6>
@@ -368,7 +378,8 @@
                 <ul class="mb-0">
                     {% for analysis in analysis_result.get_transfer_listed_elite() %}
                     <li>
-                        <strong>{{ analysis.player.name }}</strong> ({{ analysis.player.get_position_category().value }}, Age {{ analysis.player.age }}) -
+                        <strong>{{ analysis.player.name }}</strong> ({{ analysis.player.get_position_category().value
+                        }}, Age {{ analysis.player.age }}) -
                         Value Score: {{ "%.1f"|format(analysis.value_score) }}
                     </li>
                     {% endfor %}
@@ -412,7 +423,8 @@
                                 {% for analysis in poor_performers %}
                                 <tr>
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
-                                    <td class="text-center"><span class="badge bg-secondary">{{ analysis.player.get_position_category().value }}</span></td>
+                                    <td class="text-center"><span class="badge bg-secondary">{{
+                                            analysis.player.get_position_category().value }}</span></td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end">
                                         <span class="badge bg-{{ analysis.get_value_score_color() }}">
@@ -420,15 +432,16 @@
                                         </span>
                                     </td>
                                     <td class="text-end">
-                                        <span class="badge bg-danger">{{ "%.1f"|format(analysis.performance_index) }}</span>
+                                        <span class="badge bg-danger">{{ "%.1f"|format(analysis.performance_index)
+                                            }}</span>
                                     </td>
                                     <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
                                     <td class="small">
                                         {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
                                         {% if rec_parts|length == 2 %}
-                                            <strong>{{ rec_parts[0] }}</strong> - {{ rec_parts[1] }}
+                                        <strong>{{ rec_parts[0] }}</strong> - {{ rec_parts[1] }}
                                         {% else %}
-                                            {{ analysis.recommendation }}
+                                        {{ analysis.recommendation }}
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -437,8 +450,10 @@
                             <tfoot class="table-light">
                                 <tr>
                                     <td colspan="5" class="text-end fw-bold">Total Potential Savings:</td>
-                                    <td class="text-end fw-bold text-danger">£{{ "{:,.0f}".format(total_poor_wages) }} p/w</td>
-                                    <td class="text-muted small">(£{{ "{:,.0f}".format(total_poor_wages * 52) }}/year)</td>
+                                    <td class="text-end fw-bold text-danger">£{{ "{:,.0f}".format(total_poor_wages) }}
+                                        p/w</td>
+                                    <td class="text-muted small">(£{{ "{:,.0f}".format(total_poor_wages * 52) }}/year)
+                                    </td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -461,7 +476,8 @@
 
                     {% if formation_suggestions and formation_suggestions|length > 0 %}
                     <p class="text-muted small mb-4">
-                        Formations optimized to maximize your elite and good performers. Ranked by quality of available players.
+                        Formations optimized to maximize your elite and good performers. Ranked by quality of available
+                        players.
                     </p>
 
                     {% for formation in formation_suggestions %}
@@ -469,11 +485,11 @@
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h6 class="mb-0">
                                 {% if loop.first %}
-                                    <span class="badge bg-success me-2">1st Choice</span>
+                                <span class="badge bg-success me-2">1st Choice</span>
                                 {% elif loop.index == 2 %}
-                                    <span class="badge bg-info me-2">2nd Choice</span>
+                                <span class="badge bg-info me-2">2nd Choice</span>
                                 {% else %}
-                                    <span class="badge bg-secondary me-2">3rd Choice</span>
+                                <span class="badge bg-secondary me-2">3rd Choice</span>
                                 {% endif %}
                                 <strong>{{ formation.name }}</strong>
                             </h6>
@@ -483,9 +499,11 @@
                         <div class="row g-2 mt-2">
                             {% for pos_data in formation.breakdown %}
                             <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card border {% if pos_data.elite >= pos_data.required %}border-success{% elif pos_data.elite + pos_data.good >= pos_data.required %}border-info{% else %}border-warning{% endif %} bg-light">
+                                <div
+                                    class="card border {% if pos_data.elite >= pos_data.required %}border-success{% elif pos_data.elite + pos_data.good >= pos_data.required %}border-info{% else %}border-warning{% endif %} bg-light">
                                     <div class="card-body p-2 small">
-                                        <div class="fw-bold">{{ pos_data.position }} ({{ pos_data.required }} needed)</div>
+                                        <div class="fw-bold">{{ pos_data.position }} ({{ pos_data.required }} needed)
+                                        </div>
                                         <div class="text-muted">
                                             <i class="bi bi-star-fill text-success"></i> {{ pos_data.elite }} Elite
                                             <br>
@@ -501,13 +519,16 @@
 
                     <div class="alert alert-info mt-3 mb-0">
                         <i class="bi bi-info-circle-fill"></i>
-                        <strong>Tip:</strong> These formations prioritize positions where you have elite/good performers.
+                        <strong>Tip:</strong> These formations prioritize positions where you have elite/good
+                        performers.
                         Consider squad depth and tactical flexibility when making your final choice.
                     </div>
                     {% else %}
                     <div class="alert alert-warning mb-0">
                         <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>No formation suggestions available.</strong> Your squad may not have enough players in the required positions to fill standard formations. This typically occurs with smaller squads or squads with unusual position distributions.
+                        <strong>No formation suggestions available.</strong> Your squad may not have enough players in
+                        the required positions to fill standard formations. This typically occurs with smaller squads or
+                        squads with unusual position distributions.
                     </div>
                     {% endif %}
                 </div>
@@ -524,276 +545,290 @@
             <i class="bi bi-arrow-left"></i> Back to Projects
         </a>
     </div>
+
+    <!-- Role Detail Modal -->
+    <div class="modal fade" id="roleDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" id="roleModalContent">
+                <!-- Content loaded via AJAX -->
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 {% if analysis_result %}
 <!-- JavaScript for Table Sorting and Filtering -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Bootstrap tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-
-    const table = document.getElementById('squadTable');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('.player-row'));
-    const searchInput = document.getElementById('searchInput');
-    const positionFilter = document.getElementById('positionFilter');
-    const verdictFilter = document.getElementById('verdictFilter');
-    const clearFiltersBtn = document.getElementById('clearFilters');
-    const visibleCount = document.getElementById('visibleCount');
-    const currentSortLabel = document.getElementById('currentSort');
-
-    let currentSort = { column: 'value', direction: 'desc' };
-
-    // Sorting functionality
-    document.querySelectorAll('.sortable').forEach(header => {
-        header.addEventListener('click', function() {
-            const column = this.dataset.sort;
-
-            // Toggle direction if same column
-            if (currentSort.column === column) {
-                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSort.column = column;
-                currentSort.direction = 'desc';
-            }
-
-            sortTable(column, currentSort.direction);
-            updateSortLabel();
-        });
-    });
-
-    function sortTable(column, direction) {
-        // Performance verdict order mapping (ELITE > GOOD > AVERAGE > POOR)
-        const verdictOrder = {
-            'ELITE': 1,
-            'GOOD': 2,
-            'AVERAGE': 3,
-            'POOR': 4
-        };
-
-        const sortedRows = rows.sort((a, b) => {
-            let aVal, bVal;
-
-            if (column === 'name') {
-                aVal = a.dataset.name;
-                bVal = b.dataset.name;
-            } else if (column === 'position') {
-                aVal = a.dataset.position;
-                bVal = b.dataset.position;
-            } else if (column === 'verdict') {
-                // Use verdict order mapping instead of alphabetical
-                aVal = verdictOrder[a.dataset.verdict] || 99;
-                bVal = verdictOrder[b.dataset.verdict] || 99;
-            } else if (column === 'age') {
-                aVal = parseInt(a.children[2].textContent);
-                bVal = parseInt(b.children[2].textContent);
-            } else if (column === 'value') {
-                aVal = parseFloat(a.children[3].dataset.value);
-                bVal = parseFloat(b.children[3].dataset.value);
-            }
-
-            if (direction === 'asc') {
-                return aVal > bVal ? 1 : -1;
-            } else {
-                return aVal < bVal ? 1 : -1;
-            }
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Bootstrap tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
-        // Clear and re-append sorted rows
-        tbody.innerHTML = '';
-        sortedRows.forEach(row => tbody.appendChild(row));
-    }
+        const table = document.getElementById('squadTable');
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('.player-row'));
+        const searchInput = document.getElementById('searchInput');
+        const positionFilter = document.getElementById('positionFilter');
+        const verdictFilter = document.getElementById('verdictFilter');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+        const visibleCount = document.getElementById('visibleCount');
+        const currentSortLabel = document.getElementById('currentSort');
 
-    function updateSortLabel() {
-        const labels = {
-            name: 'Name',
-            position: 'Position',
-            age: 'Age',
-            value: 'Value Score',
-            verdict: 'Performance'
-        };
-        const direction = currentSort.direction === 'asc' ? 'Ascending' : 'Descending';
-        currentSortLabel.textContent = `${labels[currentSort.column]} (${direction})`;
-    }
+        let currentSort = { column: 'value', direction: 'desc' };
 
-    // Filtering functionality
-    function filterRows() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const selectedPosition = positionFilter.value;
-        const selectedVerdict = verdictFilter.value;
+        // Sorting functionality
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function () {
+                const column = this.dataset.sort;
 
-        let visibleRowCount = 0;
-
-        rows.forEach(row => {
-            const name = row.dataset.name;
-            const position = row.dataset.position;
-            const verdict = row.dataset.verdict;
-
-            const matchesSearch = !searchTerm || name.includes(searchTerm);
-            const matchesPosition = !selectedPosition || position === selectedPosition;
-            const matchesVerdict = !selectedVerdict || verdict === selectedVerdict;
-
-            if (matchesSearch && matchesPosition && matchesVerdict) {
-                row.style.display = '';
-                visibleRowCount++;
-            } else {
-                row.style.display = 'none';
-            }
-        });
-
-        visibleCount.textContent = visibleRowCount;
-    }
-
-    searchInput.addEventListener('input', filterRows);
-    positionFilter.addEventListener('change', filterRows);
-    verdictFilter.addEventListener('change', filterRows);
-
-    clearFiltersBtn.addEventListener('click', function() {
-        searchInput.value = '';
-        positionFilter.value = '';
-        verdictFilter.value = '';
-        filterRows();
-    });
-
-    // Initial sort label
-    updateSortLabel();
-
-    // Position change handler
-    document.querySelectorAll('.position-selector').forEach(selector => {
-        selector.addEventListener('change', function() {
-            const playerName = this.dataset.playerName;
-            const newPosition = this.value;
-            const row = this.closest('tr');
-
-            // Show loading state
-            const originalHTML = row.innerHTML;
-            row.style.opacity = '0.5';
-            row.style.pointerEvents = 'none';
-
-            // Make AJAX request to recalculate
-            fetch('{{ url_for("projects.recalculate_player_position") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'same-origin',  // Include cookies in request
-                body: JSON.stringify({
-                    player_name: playerName,
-                    new_position: newPosition
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    // Try to parse error message from response
-                    return response.json().then(data => {
-                        throw new Error(data.error || 'Server error');
-                    }).catch(() => {
-                        throw new Error('Server error: ' + response.status);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    // Update the row with new data
-                    updatePlayerRow(row, data);
-
-                    // Update poor performers section
-                    updatePoorPerformersSection();
-
-                    // Show success feedback
-                    row.style.opacity = '1';
-                    row.style.pointerEvents = 'auto';
-                    row.classList.add('table-success');
-                    setTimeout(() => row.classList.remove('table-success'), 1000);
+                // Toggle direction if same column
+                if (currentSort.column === column) {
+                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
                 } else {
-                    console.error('Recalculation failed:', data.error);
-                    alert('Error: ' + (data.error || 'Unknown error'));
-                    row.style.opacity = '1';
-                    row.style.pointerEvents = 'auto';
+                    currentSort.column = column;
+                    currentSort.direction = 'desc';
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to recalculate position: ' + error.message);
-                row.style.opacity = '1';
-                row.style.pointerEvents = 'auto';
+
+                sortTable(column, currentSort.direction);
+                updateSortLabel();
             });
         });
-    });
 
-    function updatePlayerRow(row, data) {
-        // Update data attributes
-        row.dataset.position = data.position;
-        row.dataset.verdict = data.verdict;
+        function sortTable(column, direction) {
+            // Performance verdict order mapping (ELITE > GOOD > AVERAGE > POOR)
+            const verdictOrder = {
+                'ELITE': 1,
+                'GOOD': 2,
+                'AVERAGE': 3,
+                'POOR': 4
+            };
 
-        // Update value score cell (index 3)
-        const valueCell = row.children[3];
-        const valueBadge = valueCell.querySelector('.badge');
-        valueBadge.textContent = data.value_score;
-        valueBadge.className = `badge bg-${data.value_score_color} fs-6`;
-        valueCell.dataset.value = data.value_score;
+            const sortedRows = rows.sort((a, b) => {
+                let aVal, bVal;
 
-        // Update performance verdict cell (index 4)
-        const verdictCell = row.children[4];
-        let verdictColor = 'secondary';
-        if (data.verdict === 'ELITE') verdictColor = 'success';
-        else if (data.verdict === 'GOOD') verdictColor = 'info';
-        else if (data.verdict === 'AVERAGE') verdictColor = 'warning';
-        else if (data.verdict === 'POOR') verdictColor = 'danger';
-        verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
+                if (column === 'name') {
+                    aVal = a.dataset.name;
+                    bVal = b.dataset.name;
+                } else if (column === 'position') {
+                    aVal = a.dataset.position;
+                    bVal = b.dataset.position;
+                } else if (column === 'verdict') {
+                    // Use verdict order mapping instead of alphabetical
+                    aVal = verdictOrder[a.dataset.verdict] || 99;
+                    bVal = verdictOrder[b.dataset.verdict] || 99;
+                } else if (column === 'age') {
+                    aVal = parseInt(a.children[2].textContent);
+                    bVal = parseInt(b.children[2].textContent);
+                } else if (column === 'value') {
+                    aVal = parseFloat(a.children[3].dataset.value);
+                    bVal = parseFloat(b.children[3].dataset.value);
+                }
 
-        // Update top metrics cell (index 7)
-        const metricsCell = row.children[7];
-        if (data.top_metrics && data.top_metrics.length > 0) {
-            metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
-        } else {
-            metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
+                if (direction === 'asc') {
+                    return aVal > bVal ? 1 : -1;
+                } else {
+                    return aVal < bVal ? 1 : -1;
+                }
+            });
+
+            // Clear and re-append sorted rows
+            tbody.innerHTML = '';
+            sortedRows.forEach(row => tbody.appendChild(row));
         }
 
-        // Update recommendation cell (index 8)
-        const recCell = row.children[8];
-        const recParts = data.recommendation.split(' - ', 2);
-        if (recParts.length === 2) {
-            recCell.innerHTML = `
+        function updateSortLabel() {
+            const labels = {
+                name: 'Name',
+                position: 'Position',
+                age: 'Age',
+                value: 'Value Score',
+                verdict: 'Performance'
+            };
+            const direction = currentSort.direction === 'asc' ? 'Ascending' : 'Descending';
+            currentSortLabel.textContent = `${labels[currentSort.column]} (${direction})`;
+        }
+
+        // Filtering functionality
+        function filterRows() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const selectedPosition = positionFilter.value;
+            const selectedVerdict = verdictFilter.value;
+
+            let visibleRowCount = 0;
+
+            rows.forEach(row => {
+                const name = row.dataset.name;
+                const position = row.dataset.position;
+                const verdict = row.dataset.verdict;
+
+                const matchesSearch = !searchTerm || name.includes(searchTerm);
+                const matchesPosition = !selectedPosition || position === selectedPosition;
+                const matchesVerdict = !selectedVerdict || verdict === selectedVerdict;
+
+                if (matchesSearch && matchesPosition && matchesVerdict) {
+                    row.style.display = '';
+                    visibleRowCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            visibleCount.textContent = visibleRowCount;
+        }
+
+        searchInput.addEventListener('input', filterRows);
+        positionFilter.addEventListener('change', filterRows);
+        verdictFilter.addEventListener('change', filterRows);
+
+        clearFiltersBtn.addEventListener('click', function () {
+            searchInput.value = '';
+            positionFilter.value = '';
+            verdictFilter.value = '';
+            filterRows();
+        });
+
+        // Initial sort label
+        updateSortLabel();
+
+        // Position change handler
+        document.querySelectorAll('.position-selector').forEach(selector => {
+            selector.addEventListener('change', function () {
+                const playerName = this.dataset.playerName;
+                const newPosition = this.value;
+                const row = this.closest('tr');
+
+                // Show loading state
+                const originalHTML = row.innerHTML;
+                row.style.opacity = '0.5';
+                row.style.pointerEvents = 'none';
+
+                // Make AJAX request to recalculate
+                fetch('{{ url_for("projects.recalculate_player_position") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin',  // Include cookies in request
+                    body: JSON.stringify({
+                        player_name: playerName,
+                        new_position: newPosition
+                    })
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            // Try to parse error message from response
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Server error');
+                            }).catch(() => {
+                                throw new Error('Server error: ' + response.status);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Update the row with new data
+                            updatePlayerRow(row, data);
+
+                            // Update poor performers section
+                            updatePoorPerformersSection();
+
+                            // Show success feedback
+                            row.style.opacity = '1';
+                            row.style.pointerEvents = 'auto';
+                            row.classList.add('table-success');
+                            setTimeout(() => row.classList.remove('table-success'), 1000);
+                        } else {
+                            console.error('Recalculation failed:', data.error);
+                            alert('Error: ' + (data.error || 'Unknown error'));
+                            row.style.opacity = '1';
+                            row.style.pointerEvents = 'auto';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to recalculate position: ' + error.message);
+                        row.style.opacity = '1';
+                        row.style.pointerEvents = 'auto';
+                    });
+            });
+        });
+
+        function updatePlayerRow(row, data) {
+            // Update data attributes
+            row.dataset.position = data.position;
+            row.dataset.verdict = data.verdict;
+
+            // Update value score cell (index 3)
+            const valueCell = row.children[3];
+            const valueBadge = valueCell.querySelector('.badge');
+            valueBadge.textContent = data.value_score;
+            valueBadge.className = `badge bg-${data.value_score_color} fs-6`;
+            valueCell.dataset.value = data.value_score;
+
+            // Update performance verdict cell (index 4)
+            const verdictCell = row.children[4];
+            let verdictColor = 'secondary';
+            if (data.verdict === 'ELITE') verdictColor = 'success';
+            else if (data.verdict === 'GOOD') verdictColor = 'info';
+            else if (data.verdict === 'AVERAGE') verdictColor = 'warning';
+            else if (data.verdict === 'POOR') verdictColor = 'danger';
+            verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
+
+            // Update top metrics cell (index 7)
+            const metricsCell = row.children[7];
+            if (data.top_metrics && data.top_metrics.length > 0) {
+                metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
+            } else {
+                metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
+            }
+
+            // Update recommendation cell (index 8)
+            const recCell = row.children[8];
+            const recParts = data.recommendation.split(' - ', 2);
+            if (recParts.length === 2) {
+                recCell.innerHTML = `
                 <div class="d-flex flex-column gap-1 small">
                     <div><span class="badge bg-primary text-wrap">${recParts[0]}</span></div>
                     <div class="text-muted">${recParts[1]}</div>
                 </div>
             `;
-        } else {
-            recCell.innerHTML = `<span class="small">${data.recommendation}</span>`;
-        }
-    }
-
-    function updatePoorPerformersSection() {
-        // Reload the page to update poor performers section
-        // In a more sophisticated implementation, this could be done via AJAX
-        // For now, we'll just note that the page should be refreshed
-        console.log('Poor performers section needs manual refresh');
-    }
-
-    // Reinitialize tooltips after any dynamic content changes
-    function reinitializeTooltips() {
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.forEach(function (tooltipTriggerEl) {
-            // Dispose existing tooltip if any
-            var existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
-            if (existingTooltip) {
-                existingTooltip.dispose();
+            } else {
+                recCell.innerHTML = `<span class="small">${data.recommendation}</span>`;
             }
-            // Create new tooltip
-            new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    }
+        }
 
-    // Call initially to ensure tooltips work
-    reinitializeTooltips();
-});
+        function updatePoorPerformersSection() {
+            // Reload the page to update poor performers section
+            // In a more sophisticated implementation, this could be done via AJAX
+            // For now, we'll just note that the page should be refreshed
+            console.log('Poor performers section needs manual refresh');
+        }
+
+        // Reinitialize tooltips after any dynamic content changes
+        function reinitializeTooltips() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.forEach(function (tooltipTriggerEl) {
+                // Dispose existing tooltip if any
+                var existingTooltip = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
+                if (existingTooltip) {
+                    existingTooltip.dispose();
+                }
+                // Create new tooltip
+                new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        }
+
+        // Call initially to ensure tooltips work
+        reinitializeTooltips();
+    });
 </script>
 {% endif %}
 

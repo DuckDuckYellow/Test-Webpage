@@ -96,42 +96,34 @@ class SquadAuditService:
         position_override: Optional[PositionCategory] = None
     ) -> PlayerAnalysis:
         """
-        Analyze a single player.
-
-        Args:
-            player: Player to analyze
-            benchmarks: Position benchmarks for normalization
-            squad_avg_wage: Squad average wage for value calculation
-            position_override: Optional position to override automatic detection
-
-        Returns:
-            PlayerAnalysis with performance index, value score, and recommendation
+        Analyze a single player using Role Evaluator.
         """
-        # Get position category (use override if provided)
-        position = position_override if position_override else player.get_position_category()
-
-        # Calculate performance index
-        performance_index = self._calculate_performance_index(player, position, benchmarks)
-
-        # Calculate value score
+        # Ensure roles are evaluated
+        if not player.best_role:
+            player.evaluate_roles()
+            
+        # Use best role for performance index
+        performance_index = player.best_role.overall_score
+        
+        # Calculate value score (Role Score / Wage Index)
         value_score = self._calculate_value_score(
             performance_index,
             player.wage,
             squad_avg_wage
         )
-
-        # Determine verdict
-        verdict = self._get_performance_verdict(performance_index)
-
+        
+        # Determine verdict based on role tier
+        verdict = PerformanceVerdict(player.best_role.tier)
+        
         # Generate recommendation
-        recommendation = self._generate_recommendation(player, verdict, value_score)
-
+        recommendation = self._generate_role_recommendation(player)
+        
         # Check contract expiry
         contract_warning = self._check_contract_warning(player.expires)
-
-        # Get top metrics
-        top_metrics = self._get_top_metrics(player, position, benchmarks)
-
+        
+        # Top metrics now come from role strengths
+        top_metrics = [f"{m}: Elite" for m in player.best_role.strengths[:2]]
+        
         return PlayerAnalysis(
             player=player,
             performance_index=performance_index,
@@ -239,26 +231,25 @@ class SquadAuditService:
     ) -> float:
         """
         Calculate value score (performance relative to wage).
-
-        Formula: (Performance_Index / Wage_Index) × 100
-
-        Args:
-            performance_index: Player's performance index
-            player_wage: Player's weekly wage
-            squad_avg_wage: Squad average weekly wage
-
-        Returns:
-            Value score (100 = expected value, >100 = good value)
+        Formula: (Performance_Index / Wage_Index) * 100
         """
         if squad_avg_wage == 0.0 or player_wage == 0.0:
-            return 100.0  # Default if wage data unavailable
-
-        # Calculate wage index (normalized to 100 = average)
-        wage_index = (player_wage / squad_avg_wage) * 100
-
-        # Value score = performance / wage
-        value_score = (performance_index / wage_index) * 100
-
+            return 100.0
+            
+        # Wage index (1.0 = average wage)
+        wage_index = player_wage / squad_avg_wage
+        
+        if wage_index < 0.1: wage_index = 0.1 # Prevent division by zero/tiny numbers
+        
+        # Value score
+        # Performance (0-100) / Wage Index (e.g. 1.5)
+        # Avg player (70) on avg wage (1.0) = 70 value score
+        # Elite player (90) on avg wage (1.0) = 90 value score
+        # Elite player (90) on high wage (2.0) = 45 value score (Poor value)
+        # Good player (80) on low wage (0.5) = 160 value score (Great value)
+        
+        value_score = (performance_index / wage_index)
+        
         return value_score
 
     def _get_performance_verdict(self, performance_index: float) -> PerformanceVerdict:
@@ -280,84 +271,39 @@ class SquadAuditService:
         else:
             return PerformanceVerdict.POOR
 
-    def _generate_recommendation(
-        self,
-        player: Player,
-        verdict: PerformanceVerdict,
-        value_score: float
-    ) -> str:
+    def _generate_role_recommendation(self, player: Player) -> str:
         """
-        Generate actionable recommendation based on player status and performance.
-
-        Args:
-            player: Player object
-            verdict: Performance verdict
-            value_score: Value score
-
-        Returns:
-            Recommendation text
+        Generate recommendation based on role evaluation.
         """
-        # Check for insufficient sample size (0-5 appearances)
-        if player.apps <= 5:
-            return "USE OR SELL - Insufficient data (low appearances)"
-
+        # If alternative role is recommended, prioritize that
+        if player.recommended_role:
+             return f"{player.recommended_role.role} - {player.role_change_reason}"
+             
+        # Otherwise standard recommendation based on best role status
+        role = player.best_role
         status = player.get_status_flag()
-        age = player.age
-
-        # Elite performers
-        if verdict == PerformanceVerdict.ELITE:
+        
+        if role.tier == 'ELITE':
             if status == StatusFlag.TRANSFER_LISTED:
-                return "INVESTIGATE TRANSFER LISTING - Elite metrics suggest retention"
+                return "KEEP & PLAY - Elite ratings despite transfer list"
             elif status == StatusFlag.U21:
-                return "PROMOTE TO SENIOR TEAM - Elite performance at young age"
-            elif status == StatusFlag.PRE_CONTRACT:
-                return "USE NOW FOR IMPACT - Elite performer leaving soon"
-            elif status == StatusFlag.UNRELIABLE:
-                return "ADDRESS TACTICAL ISSUE - Elite metrics despite unreliability"
+                return "PROMOTE - Elite young talent"
             elif player.apps < 10:
-                return f"DEPLOY MORE ({player.apps} starts) - Elite per-90 metrics"
+                return "INCREASE MINUTES - Elite output per 90"
             else:
-                return "LOCK IN STARTER - Elite performance across all metrics"
-
-        # Good performers
-        elif verdict == PerformanceVerdict.GOOD:
+                return "CORE STARTER - Elite performance"
+                
+        elif role.tier == 'GOOD':
             if status == StatusFlag.TRANSFER_LISTED:
-                return "Reconsider transfer - Good performance metrics"
-            elif status == StatusFlag.U21:
-                return "Continue development - Good progress for age"
-            elif player.apps < 10:
-                return f"Increase minutes ({player.apps} starts) - Good per-90"
-            else:
-                return "Maintain current role - Solid contributor"
-
-        # Average performers
-        elif verdict == PerformanceVerdict.AVERAGE:
-            if status == StatusFlag.TRANSFER_LISTED:
-                return "SELL - Average metrics, listed for transfer"
-            elif status == StatusFlag.U21:
-                return "Continue rotation - Development ongoing"
-            elif age >= 30:
-                return "Rotation option - Average veteran"
-            else:
-                return "Squad rotation - Meeting minimum standards"
-
-        # Poor performers
-        else:  # POOR
-            if status == StatusFlag.TRANSFER_LISTED:
-                return "SELL IMMEDIATELY - Poor metrics, already listed"
-            elif status == StatusFlag.U21:
-                if age <= 21:
-                    return "Loan or development squad - Needs improvement"
-                else:
-                    return "Review future - Poor performance for age"
-            elif status == StatusFlag.UNRELIABLE:
-                return "SELL - Poor metrics and unreliable"
-            elif age >= 30:
-                return "DECLINING - Consider replacement"
-            elif value_score < 80:
-                return "UNDERPERFORMING - Review role or sell"
-            else:
-                return "Monitor closely - Below expected standards"
+                return "EVALUATE - Good depth option"
+            return "ROTATION/STARTER - Solid performance"
+            
+        elif role.tier == 'POOR':
+            if status == StatusFlag.U21:
+                return "DEVELOPMENT REQUIRED - Not ready"
+            return "SELL/REPLACE - Below standard"
+            
+        return "BACKUP - Average performance"
 
     def _check_contract_warning(self, expires: str) -> bool:
         """

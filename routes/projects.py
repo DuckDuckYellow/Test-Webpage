@@ -251,8 +251,20 @@ def squad_audit_tracker():
                     html_content = file.read().decode('utf-8')
 
                     # Parse HTML
-                    parser = FMHTMLParser()
-                    squad = parser.parse_html(html_content)
+                    # Parse HTML
+                    try:
+                        from services.fm_parser_v2 import FMHTMLParserV2
+                        parser = FMHTMLParserV2()
+                        squad = parser.parse_html(html_content)
+                    except ValueError as e:
+                        current_app.logger.warning(f"V2 Parser failed ({e}). Falling back to Legacy Parser.")
+                        from services.fm_parser import FMHTMLParser
+                        parser = FMHTMLParser()
+                        squad = parser.parse_html(html_content)
+
+                    # Evaluate roles for all players
+                    for player in squad.players:
+                        player.evaluate_roles()
 
                     current_app.logger.info(f"Squad audit: Parsed {len(squad.players)} players")
 
@@ -400,6 +412,62 @@ def debug_session():
     return session_info
 
 
+
+@projects_bp.route("/squad-audit-tracker/player-roles", methods=["POST"])
+@csrf.exempt
+def get_player_role_details():
+    """
+    Get detailed role analysis for a specific player (modal content).
+    Expects: {"player_name": "PLAYER NAME"}
+    """
+    try:
+        data = request.get_json()
+        player_name = data.get('player_name')
+        
+        if not player_name:
+            return "Player name required", 400
+            
+        # Get stored HTML file path from session
+        if 'squad_html_path' not in session:
+            return "Session expired", 400
+
+        html_file_path = session['squad_html_path']
+        
+        # Read and re-parse the HTML (inefficient but stateless)
+        from services.fm_parser_v2 import FMHTMLParserV2
+        import os
+        
+        if not os.path.exists(html_file_path):
+            return "Data file missing", 404
+            
+        with open(html_file_path, 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        parser = None
+        try:
+            parser = FMHTMLParserV2()
+            squad = parser.parse_html(html_content)
+        except ValueError:
+            from services.fm_parser import FMHTMLParser
+            parser = FMHTMLParser()
+            squad = parser.parse_html(html_content)
+        
+        # Find player
+        player = next((p for p in squad.players if p.name == player_name), None)
+        if not player:
+            return "Player not found", 404
+            
+        # Evaluate roles
+        player.evaluate_roles()
+        
+        # Render the modal template part
+        return render_template("projects/role_detail_modal.html", player=player)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching role details: {e}")
+        return str(e), 500
+
+# Deprecated or unused endpoints below (can be removed later)
 @projects_bp.route("/squad-audit-tracker/recalculate", methods=["POST"])
 @csrf.exempt  # Exempt from CSRF for AJAX JSON API endpoint
 def recalculate_player_position():
