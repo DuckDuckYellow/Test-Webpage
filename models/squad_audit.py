@@ -105,6 +105,12 @@ class Player:
         }
         return flag_map.get(self.inf, StatusFlag.NONE)
 
+    def get_position_category(self):
+        """Helper for templates to get position category."""
+        from services.player_evaluator_service import PlayerEvaluatorService
+        evaluator = PlayerEvaluatorService()
+        return evaluator.get_position_category(self)
+
 @dataclass
 class Squad:
     """Represents a collection of players."""
