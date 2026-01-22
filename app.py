@@ -54,7 +54,6 @@ def create_app(config_class=None):
     if config_class is None:
         config_class = get_config()
     app.config.from_object(config_class)
-    app.debug = True  # Forced on for Round 2 debugging
 
     # Initialize extensions
     csrf.init_app(app)
@@ -214,18 +213,17 @@ app = create_app()
 
 if __name__ == "__main__":
     # Development server
-    debug_mode = True  # Forced on for debugging Round 2 issues
     env_name = os.environ.get('FLASK_ENV', 'development')
 
     # Display startup information
     print("=" * 60)
     print(f"Flask Application Starting")
     print(f"Environment: {env_name}")
-    print(f"Debug Mode: {debug_mode}")
+    print(f"Debug Mode: {app.debug}")
     print(f"Config: {app.config.__class__.__name__}")
     print("=" * 60)
 
-    if debug_mode and env_name == 'production':
+    if app.debug and env_name == 'production':
         print("\n⚠️  WARNING: Debug mode enabled in production!")
         print("This is a security risk. Set FLASK_DEBUG=false\n")
 
@@ -233,4 +231,4 @@ if __name__ == "__main__":
     host = os.environ.get('FLASK_HOST', '127.0.0.1')
     port = int(os.environ.get('FLASK_PORT', 5000))
 
-    app.run(host=host, port=port, debug=debug_mode)
+    app.run(host=host, port=port, debug=app.debug)

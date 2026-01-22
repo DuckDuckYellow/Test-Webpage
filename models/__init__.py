@@ -5,12 +5,12 @@ Provides data models for blog articles, recruitment tracking, and squad audits.
 """
 from .article import Article, BlogCategory
 from .vacancy import Vacancy, Recruiter, RoleType, RecruitmentStage
+from .constants import PositionCategory
 from .squad_audit import (
     Player,
     Squad,
     PlayerAnalysis,
     SquadAnalysisResult,
-    PositionCategory,
     StatusFlag,
     PerformanceVerdict
 )

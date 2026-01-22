@@ -585,7 +585,52 @@
         const visibleCount = document.getElementById('visibleCount');
         const currentSortLabel = document.getElementById('currentSort');
 
-        let currentSort = { column: 'value', direction: 'desc' };
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        window.openRoleModal = function (playerName) {
+            const modal = new bootstrap.Modal(document.getElementById('roleDetailModal'));
+            const content = document.getElementById('roleModalContent');
+
+            content.innerHTML = `
+                <div class="modal-body text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Loading role details...</p>
+                </div>
+            `;
+
+            modal.show();
+
+            fetch('/projects/squad-audit-tracker/player-roles', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ player_name: playerName })
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to load role details');
+                    return response.text();
+                })
+                .then(html => {
+                    content.innerHTML = html;
+                })
+                .catch(error => {
+                    content.innerHTML = `
+                    <div class="modal-header">
+                        <h5 class="modal-title">Error</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> ${error.message}
+                        </div>
+                    </div>
+                `;
+                });
+        };
 
         // Sorting functionality
         document.querySelectorAll('.sortable').forEach(header => {
@@ -723,6 +768,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
                     },
                     credentials: 'same-origin',  // Include cookies in request
                     body: JSON.stringify({
