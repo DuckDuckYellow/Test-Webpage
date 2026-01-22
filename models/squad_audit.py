@@ -532,6 +532,23 @@ class PlayerAnalysis:
         else:
             return "danger"  # Red
 
+    def get_verdict_color(self) -> str:
+        """
+        Get Bootstrap color class for performance verdict.
+
+        Returns:
+            Bootstrap color class
+        """
+        if self.verdict == PerformanceVerdict.ELITE:
+            return "success"
+        elif self.verdict == PerformanceVerdict.GOOD:
+            return "info"
+        elif self.verdict == PerformanceVerdict.AVERAGE:
+            return "warning"
+        elif self.verdict == PerformanceVerdict.POOR:
+            return "danger"
+        return "secondary"
+
 
 @dataclass
 class SquadAnalysisResult:

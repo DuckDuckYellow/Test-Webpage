@@ -220,12 +220,12 @@
                                             title="Value Score = (Role Score / Wage Index) × 100"></i>
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
+                                    <th class="text-center">Performance</th>
                                     <th class="sortable" data-sort="role" style="cursor: pointer;">
                                         Best Role
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
                                     <th>Suggested Role</th>
-                                    <th class="text-center">Flag</th>
                                     <th class="text-end">Wage</th>
                                     <th class="text-center">Contract</th>
                                     <th>Stats</th>
@@ -239,7 +239,7 @@
                                     data-verdict="{{ analysis.player.best_role.tier }}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ analysis.player.position_selected }}</span>
+                                        <span class="badge bg-secondary">{{ analysis.player.position }}</span>
                                     </td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end" data-value="{{ analysis.value_score }}">
@@ -247,14 +247,19 @@
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
                                     </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-{{ analysis.get_verdict_color() }}">
+                                            {{ analysis.player.best_role.tier }}
+                                        </span>
+                                    </td>
 
                                     <!-- Best Role -->
                                     <td>
                                         {% set role = analysis.player.best_role %}
                                         <div class="role-badge role-{{ role.tier|lower }}"
-                                            onclick="openRoleModal('{{ analysis.player.name|replace("'", "\\'") }}')"
+                                            onclick='openRoleModal({{ analysis.player.name|tojson }})'
                                             style="cursor: pointer;">
-                                            {{ role.role }}
+                                            {{ role.display_name }}
                                             <span class="role-score">({{ role.overall_score|round }})</span>
                                         </div>
                                     </td>
@@ -264,20 +269,13 @@
                                         {% if analysis.player.recommended_role %}
                                         {% set rec = analysis.player.recommended_role %}
                                         <div class="role-suggestion">
-                                            <span class="suggested-badge">{{ rec.role }}</span>
+                                            <span class="suggested-badge">{{ rec.display_name }}</span>
                                             <small class="text-success fw-bold">+{{ (rec.overall_score -
                                                 analysis.player.best_role.overall_score)|round|int }}</small>
                                             <div class="reason">{{ analysis.player.role_change_reason }}</div>
                                         </div>
                                         {% else %}
                                         <span class="text-muted small">-</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        {% if analysis.player.inf %}
-                                        <span class="badge bg-dark">{{ analysis.player.inf }}</span>
-                                        {% else %}
-                                        <span class="text-muted">-</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
@@ -782,16 +780,16 @@
             else if (data.verdict === 'POOR') verdictColor = 'danger';
             verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
 
-            // Update top metrics cell (index 7)
-            const metricsCell = row.children[7];
+            // Update top metrics cell (index 9)
+            const metricsCell = row.children[9];
             if (data.top_metrics && data.top_metrics.length > 0) {
                 metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
             } else {
                 metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
             }
 
-            // Update recommendation cell (index 8)
-            const recCell = row.children[8];
+            // Update recommendation cell (index 10)
+            const recCell = row.children[10];
             const recParts = data.recommendation.split(' - ', 2);
             if (recParts.length === 2) {
                 recCell.innerHTML = `

@@ -13,7 +13,7 @@
             <h6 class="text-uppercase text-muted small mb-3">Best Role (Current)</h6>
             <div class="d-flex align-items-center mb-3">
                 <div class="display-6 fw-bold text-{{ 'success' if player.best_role.tier == 'ELITE' else 'primary' }}">
-                    {{ player.best_role.role }}
+                    {{ player.best_role.display_name }}
                 </div>
                 <div class="ms-3 text-center">
                     <div class="h3 mb-0">{{ player.best_role.overall_score|round|int }}</div>
@@ -47,7 +47,7 @@
                 <div class="card-body py-2">
                     <div class="d-flex align-items-center justify-content-between">
                         <div>
-                            <h5 class="mb-0 text-primary fw-bold">{{ player.recommended_role.role }}</h5>
+                            <h5 class="mb-0 text-primary fw-bold">{{ player.recommended_role.display_name }}</h5>
                             <small class="text-muted">{{ player.recommended_role.tier }} Fit</small>
                         </div>
                         <div class="text-end">
@@ -92,7 +92,7 @@
                 {% for score in player.all_role_scores %}
                 <tr
                     class="{{ 'table-success' if score.role == player.best_role.role }} {{ 'table-primary' if player.recommended_role and score.role == player.recommended_role.role }}">
-                    <td class="fw-semibold">{{ score.role }}</td>
+                    <td class="fw-semibold">{{ score.display_name }}</td>
                     <td class="text-center fw-bold">{{ score.overall_score|round(1) }}</td>
                     <td class="text-center mb-0">
                         <span

@@ -360,8 +360,15 @@ def export_squad_audit():
         with open(html_file_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        parser = FMHTMLParser()
-        squad = parser.parse_html(html_content)
+        parser = None
+        try:
+            from services.fm_parser_v2 import FMHTMLParserV2
+            parser = FMHTMLParserV2()
+            squad = parser.parse_html(html_content)
+        except ValueError:
+            from services.fm_parser import FMHTMLParser
+            parser = FMHTMLParser()
+            squad = parser.parse_html(html_content)
 
         service = SquadAuditService()
         analysis_result = service.analyze_squad(squad)
@@ -516,12 +523,18 @@ def recalculate_player_position():
             return {"error": "Session expired. Please upload your squad file again.", "success": False}, 400
 
         # Read and re-parse the HTML
-        from services.fm_parser import FMHTMLParser
         with open(html_file_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        parser = FMHTMLParser()
-        squad = parser.parse_html(html_content)
+        parser = None
+        try:
+            from services.fm_parser_v2 import FMHTMLParserV2
+            parser = FMHTMLParserV2()
+            squad = parser.parse_html(html_content)
+        except ValueError:
+            from services.fm_parser import FMHTMLParser
+            parser = FMHTMLParser()
+            squad = parser.parse_html(html_content)
 
         # Find the player
         player = None

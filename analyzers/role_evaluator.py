@@ -18,6 +18,7 @@ class RoleScore:
 
     Attributes:
         role: Role name (e.g., "CB-STOPPER")
+        display_name: Human-readable role name (e.g., "Center-Back")
         overall_score: 0-100 score (higher = better fit)
         tier: ELITE/GOOD/AVERAGE/POOR
         metric_scores: Dict of {metric: {value, tier, score, thresholds}}
@@ -25,6 +26,7 @@ class RoleScore:
         weaknesses: List of metrics where player is poor
     """
     role: str
+    display_name: str
     overall_score: float
     tier: str
     metric_scores: Dict[str, Dict]
@@ -98,6 +100,7 @@ class RoleEvaluator:
 
         return RoleScore(
             role=role.name,
+            display_name=role.display_name,
             overall_score=overall_score,
             tier=overall_tier,
             metric_scores=metric_scores,

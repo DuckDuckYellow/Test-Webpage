@@ -27,6 +27,7 @@ class RoleProfile:
         interchangeable_with: List of roles this can interchange with
     """
     name: str
+    display_name: str
     primary_position: str
     description: str
     metrics: List[str]
@@ -40,6 +41,7 @@ class RoleProfile:
 
 GK = RoleProfile(
     name='GK',
+    display_name='Goalkeeper',
     primary_position='GK',
     description='Goalkeeper - shot-stopping and distribution',
     metrics=['xgp_90', 'conceded_90', 'interceptions_90', 'pass_pct'],
@@ -54,6 +56,7 @@ GK = RoleProfile(
 
 CB_STOPPER = RoleProfile(
     name='CB-STOPPER',
+    display_name='Center-Back',
     primary_position='CB',
     description='Traditional Defender - tackling and aerial dominance',
     metrics=['tackles_90', 'header_win_pct', 'clearances_90', 'interceptions_90', 'blocks_90'],
@@ -69,6 +72,7 @@ CB_STOPPER = RoleProfile(
 
 BCB = RoleProfile(
     name='BCB',
+    display_name='Ball-Playing Center-Back',
     primary_position='CB',
     description='Ball-Playing Center Back - distribution and possession',
     metrics=['tackles_90', 'clearances_90', 'interceptions_90', 'blocks_90', 'prog_passes_90', 'pass_pct'],
@@ -85,6 +89,7 @@ BCB = RoleProfile(
 
 FB = RoleProfile(
     name='FB',
+    display_name='Full-Back',
     primary_position='FB',
     description='Full Back - balanced defense and width',
     metrics=['tackles_90', 'interceptions_90', 'pressures_90', 'crosses_90', 'prog_passes_90', 'pass_pct'],
@@ -101,6 +106,7 @@ FB = RoleProfile(
 
 WB = RoleProfile(
     name='WB',
+    display_name='Wing-Back',
     primary_position='FB',
     description='Wing Back - attack, defense, and width',
     metrics=['tackles_90', 'interceptions_90', 'pressures_90', 'dribbles_90', 'crosses_90', 'sprints_90'],
@@ -121,6 +127,7 @@ WB = RoleProfile(
 
 MD = RoleProfile(
     name='MD',
+    display_name='Defensive Midfielder',
     primary_position='DM',
     description='Midfielder Destroyer - defensive focus',
     metrics=['tackles_90', 'interceptions_90', 'blocks_90', 'pressures_90', 'pass_pct'],
@@ -136,6 +143,7 @@ MD = RoleProfile(
 
 MC = RoleProfile(
     name='MC',
+    display_name='Central Midfielder',
     primary_position='CM',
     description='Midfielder Creator - playmaking focus',
     metrics=['key_passes_90', 'prog_passes_90', 'xassists_90', 'dribbles_90', 'pass_pct', 'tackles_90'],
@@ -156,6 +164,7 @@ MC = RoleProfile(
 
 AM_C = RoleProfile(
     name='AM(C)',
+    display_name='Attacking Midfielder (C)',
     primary_position='AM',
     description='Central Attacking Midfielder - creating and scoring',
     metrics=['key_passes_90', 'xassists_90', 'dribbles_90', 'pass_pct', 'shots_on_target_90', 'xg_90'],
@@ -172,6 +181,7 @@ AM_C = RoleProfile(
 
 WAP = RoleProfile(
     name='WAP',
+    display_name='Winger',
     primary_position='W',
     description='Wide Attacker - Provider (crossing and creating)',
     metrics=['dribbles_90', 'crosses_90', 'sprints_90', 'key_passes_90', 'xassists_90'],
@@ -187,6 +197,7 @@ WAP = RoleProfile(
 
 WAS = RoleProfile(
     name='WAS',
+    display_name='Inside Forward',
     primary_position='W',
     description='Wide Attacker - Striker (finishing focus)',
     metrics=['dribbles_90', 'shots_on_target_90', 'sprints_90', 'xg_90', 'conversion_pct'],
@@ -202,6 +213,7 @@ WAS = RoleProfile(
 
 ST_PROVIDER = RoleProfile(
     name='ST-PROVIDER',
+    display_name='Target Forward',
     primary_position='ST',
     description='Striker - Provider (target man and link play)',
     metrics=['headers_won_90', 'xassists_90', 'xg_90', 'shots_on_target_90', 'key_passes_90'],
@@ -217,6 +229,7 @@ ST_PROVIDER = RoleProfile(
 
 ST_GS = RoleProfile(
     name='ST-GS',
+    display_name='Advanced Forward',
     primary_position='ST',
     description='Striker - Goalscorer (pure finisher)',
     metrics=['headers_won_90', 'dribbles_90', 'xg_90', 'shots_on_target_90', 'conversion_pct'],
