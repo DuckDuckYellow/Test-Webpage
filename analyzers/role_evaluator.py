@@ -52,8 +52,10 @@ class RoleEvaluator:
         Returns:
             RoleScore object with detailed evaluation
         """
-        # Get normalized metrics from player
-        player_metrics = player.get_normalized_metrics()
+        # Get normalized metrics using external logic
+        from services.player_evaluator_service import PlayerEvaluatorService
+        evaluator_service = PlayerEvaluatorService()
+        player_metrics = evaluator_service.get_normalized_metrics(player)
 
         role_score = 0.0
         metric_scores = {}

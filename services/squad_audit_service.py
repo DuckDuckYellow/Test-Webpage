@@ -1,9 +1,5 @@
 """
-Squad Audit Analysis Service
-
-This service provides the core business logic for analyzing Football Manager
-squad data, calculating performance metrics, value scores, and generating
-actionable recommendations.
+Squad Audit Analysis Service - Refactored.
 """
 
 from typing import Dict, List, Optional
@@ -13,80 +9,35 @@ from models.squad_audit import (
     Squad,
     PlayerAnalysis,
     SquadAnalysisResult,
-    PositionCategory,
     StatusFlag,
     PerformanceVerdict
 )
-
+from models.constants import PositionCategory, POSITION_METRICS, METRIC_NAMES
+from services.player_evaluator_service import PlayerEvaluatorService
 
 class SquadAuditService:
     """Service for analyzing squad performance and value."""
 
-    # Position-specific metrics configuration
-    # Each position uses 4 key metrics for evaluation
-    POSITION_METRICS = {
-        PositionCategory.GK: ["sv_pct", "xgp", "pas_pct", "av_rat"],
-        PositionCategory.CB: ["k_tck_90", "int_90", "hdr_pct", "pas_pct"],
-        PositionCategory.FB: ["k_tck_90", "drb_90", "pas_pct", "blk_90"],
-        PositionCategory.DM: ["k_tck_90", "int_90", "pas_pct", "av_rat"],
-        PositionCategory.CM: ["pas_pct", "k_tck_90", "drb_90", "shot_90"],
-        PositionCategory.AM: ["ch_c_90", "drb_90", "xg", "pas_pct"],
-        PositionCategory.W: ["drb_90", "ch_c_90", "shot_90", "pas_pct"],
-        PositionCategory.ST: ["shot_90", "xg", "ch_c_90", "av_rat"]
-    }
-
-    # Metric display names for readable output
-    METRIC_NAMES = {
-        "sv_pct": "Save %",
-        "xgp": "xG Prevented",
-        "pas_pct": "Pass %",
-        "av_rat": "Avg Rating",
-        "k_tck_90": "Key Tackles/90",
-        "int_90": "Int/90",
-        "hdr_pct": "Header %",
-        "drb_90": "Dribbles/90",
-        "blk_90": "Blocks/90",
-        "shot_90": "Shots/90",
-        "ch_c_90": "Chances Created/90",
-        "xg": "xG"
-    }
-
     def __init__(self):
-        """Initialize the service."""
-        pass
+        self.player_evaluator = PlayerEvaluatorService()
 
     def analyze_squad(self, squad: Squad) -> SquadAnalysisResult:
-        """
-        Perform complete squad analysis.
-
-        Args:
-            squad: Squad object containing all players
-
-        Returns:
-            SquadAnalysisResult with complete analysis for all players
-        """
-        # Calculate position benchmarks (averages by position)
+        """Perform complete squad analysis."""
         benchmarks = self._calculate_position_benchmarks(squad)
-
-        # Calculate squad average wage
         squad_avg_wage = squad.get_average_wage()
 
-        # Analyze each player
         player_analyses = []
         for player in squad.players:
             analysis = self._analyze_player(player, benchmarks, squad_avg_wage)
             player_analyses.append(analysis)
 
-        # Create and return result
-        result = SquadAnalysisResult(
+        return SquadAnalysisResult(
             squad=squad,
             player_analyses=player_analyses,
             position_benchmarks=benchmarks,
             squad_avg_wage=squad_avg_wage,
             total_players=len(squad.players)
         )
-
-        return result
 
     def _analyze_player(
         self,
@@ -95,33 +46,15 @@ class SquadAuditService:
         squad_avg_wage: float,
         position_override: Optional[PositionCategory] = None
     ) -> PlayerAnalysis:
-        """
-        Analyze a single player using Role Evaluator.
-        """
-        # Ensure roles are evaluated
+        """Analyze a single player."""
         if not player.best_role:
-            player.evaluate_roles()
+            self.player_evaluator.evaluate_roles(player)
             
-        # Use best role for performance index
         performance_index = player.best_role.overall_score
-        
-        # Calculate value score (Role Score / Wage Index)
-        value_score = self._calculate_value_score(
-            performance_index,
-            player.wage,
-            squad_avg_wage
-        )
-        
-        # Determine verdict based on role tier
+        value_score = self._calculate_value_score(performance_index, player.wage, squad_avg_wage)
         verdict = PerformanceVerdict(player.best_role.tier)
-        
-        # Generate recommendation
         recommendation = self._generate_role_recommendation(player)
-        
-        # Check contract expiry
         contract_warning = self._check_contract_warning(player.expires)
-        
-        # Top metrics now come from role strengths
         top_metrics = [f"{m}: Elite" for m in player.best_role.strengths[:2]]
         
         return PlayerAnalysis(
@@ -135,268 +68,73 @@ class SquadAuditService:
         )
 
     def _calculate_position_benchmarks(self, squad: Squad) -> Dict[str, Dict[str, float]]:
-        """
-        Calculate average metrics for each position.
-
-        Args:
-            squad: Squad object
-
-        Returns:
-            Dictionary mapping position to metric averages
-            Example: {"GK": {"sv_pct": 68.5, "xgp": 2.1, ...}, ...}
-        """
+        """Calculate average metrics for each position."""
         benchmarks = {}
 
         for position in PositionCategory:
-            # Get all players in this position
-            position_players = squad.get_players_by_position(position)
+            # Group players by position using the evaluator
+            position_players = [p for p in squad.players if self.player_evaluator.get_position_category(p) == position]
 
             if not position_players:
                 continue
 
-            # Get metrics for this position
-            metrics = self.POSITION_METRICS.get(position, [])
-
-            # Calculate averages
+            metrics = POSITION_METRICS.get(position, [])
             position_benchmarks = {}
             for metric in metrics:
-                values = []
-                for player in position_players:
-                    value = getattr(player, metric, None)
-                    if value is not None:
-                        values.append(value)
-
-                if values:
-                    position_benchmarks[metric] = sum(values) / len(values)
-                else:
-                    position_benchmarks[metric] = 0.0
+                values = [getattr(p, metric, 0.0) for p in position_players if getattr(p, metric, None) is not None]
+                position_benchmarks[metric] = sum(values) / len(values) if values else 0.0
 
             benchmarks[position.value] = position_benchmarks
 
         return benchmarks
 
-    def _calculate_performance_index(
-        self,
-        player: Player,
-        position: PositionCategory,
-        benchmarks: Dict[str, Dict[str, float]]
-    ) -> float:
-        """
-        Calculate performance index (normalized to 100 = average).
-
-        Args:
-            player: Player to evaluate
-            position: Player's position category
-            benchmarks: Position benchmarks
-
-        Returns:
-            Performance index (100 = average, >100 = above average)
-        """
-        # Get metrics for this position
-        metrics = self.POSITION_METRICS.get(position, [])
-
-        if not metrics:
-            return 100.0  # Default average if no metrics defined
-
-        # Get position benchmarks
-        position_benchmarks = benchmarks.get(position.value, {})
-
-        if not position_benchmarks:
-            return 100.0  # Default if no benchmarks available
-
-        # Calculate normalized scores for each metric
-        normalized_scores = []
-        for metric in metrics:
-            player_value = getattr(player, metric, None)
-            benchmark_value = position_benchmarks.get(metric, 0.0)
-
-            if player_value is None or benchmark_value == 0.0:
-                continue  # Skip missing or zero benchmarks
-
-            # Normalize to 100 = average
-            normalized = (player_value / benchmark_value) * 100
-            normalized_scores.append(normalized)
-
-        # Return average of normalized scores
-        if normalized_scores:
-            return sum(normalized_scores) / len(normalized_scores)
-        else:
-            return 100.0  # Default if no valid metrics
-
-    def _calculate_value_score(
-        self,
-        performance_index: float,
-        player_wage: float,
-        squad_avg_wage: float
-    ) -> float:
-        """
-        Calculate value score (performance relative to wage).
-        Formula: (Performance_Index / Wage_Index) * 100
-        """
+    def _calculate_value_score(self, performance_index: float, player_wage: float, squad_avg_wage: float) -> float:
         if squad_avg_wage == 0.0 or player_wage == 0.0:
             return 100.0
-            
-        # Wage index (1.0 = average wage)
-        wage_index = player_wage / squad_avg_wage
-        
-        if wage_index < 0.1: wage_index = 0.1 # Prevent division by zero/tiny numbers
-        
-        # Value score
-        # Performance (0-100) / Wage Index (e.g. 1.5)
-        # Avg player (70) on avg wage (1.0) = 70 value score
-        # Elite player (90) on avg wage (1.0) = 90 value score
-        # Elite player (90) on high wage (2.0) = 45 value score (Poor value)
-        # Good player (80) on low wage (0.5) = 160 value score (Great value)
-        
-        value_score = (performance_index / wage_index)
-        
-        return value_score
-
-    def _get_performance_verdict(self, performance_index: float) -> PerformanceVerdict:
-        """
-        Get performance verdict based on performance index.
-
-        Args:
-            performance_index: Performance index value
-
-        Returns:
-            PerformanceVerdict enum
-        """
-        if performance_index >= 120:
-            return PerformanceVerdict.ELITE
-        elif performance_index >= 100:
-            return PerformanceVerdict.GOOD
-        elif performance_index >= 85:
-            return PerformanceVerdict.AVERAGE
-        else:
-            return PerformanceVerdict.POOR
+        wage_index = max(0.1, player_wage / squad_avg_wage)
+        return performance_index / wage_index
 
     def _generate_role_recommendation(self, player: Player) -> str:
-        """
-        Generate recommendation based on role evaluation.
-        """
         if player.mins is not None and player.mins < 500:
             return "USE OR SELL - Insufficient data to judge (Sub 500 mins)"
 
-        # If alternative role is recommended, prioritize that
         if player.recommended_role:
              return f"{player.recommended_role.role} - {player.role_change_reason}"
              
-        # Otherwise standard recommendation based on best role status
         role = player.best_role
         status = player.get_status_flag()
         
         if role.tier == 'ELITE':
-            if status == StatusFlag.TRANSFER_LISTED:
-                return "KEEP & PLAY - Elite ratings despite transfer list"
-            elif status == StatusFlag.U21:
-                return "PROMOTE - Elite young talent"
-            elif player.apps < 10:
-                return "INCREASE MINUTES - Elite output per 90"
-            else:
-                return "CORE STARTER - Elite performance"
+            if status == StatusFlag.TRANSFER_LISTED: return "KEEP & PLAY - Elite ratings despite transfer list"
+            elif status == StatusFlag.U21: return "PROMOTE - Elite young talent"
+            elif player.apps < 10: return "INCREASE MINUTES - Elite output per 90"
+            else: return "CORE STARTER - Elite performance"
                 
         elif role.tier == 'GOOD':
-            if status == StatusFlag.TRANSFER_LISTED:
-                return "EVALUATE - Good depth option"
+            if status == StatusFlag.TRANSFER_LISTED: return "EVALUATE - Good depth option"
             return "ROTATION/STARTER - Solid performance"
             
         elif role.tier == 'POOR':
-            if status == StatusFlag.U21:
-                return "DEVELOPMENT REQUIRED - Not ready"
+            if status == StatusFlag.U21: return "DEVELOPMENT REQUIRED - Not ready"
             return "SELL/REPLACE - Below standard"
             
         return "BACKUP - Average performance"
 
     def _check_contract_warning(self, expires: str) -> bool:
-        """
-        Check if contract is expiring soon (within 12 months).
-
-        Args:
-            expires: Contract expiry date (DD/MM/YYYY format)
-
-        Returns:
-            True if contract expires within 12 months
-        """
-        if not expires or expires == "-":
-            return False
-
+        if not expires or expires == "-": return False
         try:
-            # Parse date (format: "30/06/2032")
             expiry_date = datetime.strptime(expires, "%d/%m/%Y")
             today = datetime.now()
-
-            # Check if expiring within 12 months
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
-
             return months_remaining <= 12
-
-        except (ValueError, AttributeError):
-            return False
-
-    def _get_top_metrics(
-        self,
-        player: Player,
-        position: PositionCategory,
-        benchmarks: Dict[str, Dict[str, float]]
-    ) -> List[str]:
-        """
-        Get the top 2 metrics that drive the player's rating.
-
-        Args:
-            player: Player object
-            position: Position category
-            benchmarks: Position benchmarks
-
-        Returns:
-            List of top 2 metric descriptions (e.g., ["Dribbles/90: 6.00", "Pass %: 91"])
-        """
-        metrics = self.POSITION_METRICS.get(position, [])
-        position_benchmarks = benchmarks.get(position.value, {})
-
-        if not metrics or not position_benchmarks:
-            return []
-
-        # Calculate relative performance for each metric
-        metric_scores = []
-        for metric in metrics:
-            player_value = getattr(player, metric, None)
-            benchmark_value = position_benchmarks.get(metric, 0.0)
-
-            if player_value is None or benchmark_value == 0.0:
-                continue
-
-            # Calculate relative score
-            relative_score = (player_value / benchmark_value) * 100
-            metric_scores.append((metric, player_value, relative_score))
-
-        # Sort by relative score (descending)
-        metric_scores.sort(key=lambda x: x[2], reverse=True)
-
-        # Get top 2 metrics
-        top_metrics = []
-        for metric, value, _ in metric_scores[:2]:
-            metric_name = self.METRIC_NAMES.get(metric, metric)
-            top_metrics.append(f"{metric_name}: {value:.2f}")
-
-        return top_metrics
+        except: return False
 
     def export_to_csv_data(self, result: SquadAnalysisResult) -> List[Dict[str, str]]:
-        """
-        Export analysis results to CSV-ready data.
-
-        Args:
-            result: SquadAnalysisResult object
-
-        Returns:
-            List of dictionaries ready for CSV export
-        """
         csv_data = []
-
         for analysis in result.player_analyses:
             row = {
                 "Name": analysis.player.name,
-                "Position": analysis.player.get_position_category().value,
+                "Position": self.player_evaluator.get_position_category(analysis.player).value,
                 "Age": str(analysis.player.age),
                 "Value Score": f"{analysis.value_score:.1f}",
                 "Performance": analysis.verdict.value,
@@ -408,212 +146,46 @@ class SquadAuditService:
                 "Top Metric 2": analysis.top_metrics[1] if len(analysis.top_metrics) > 1 else "-"
             }
             csv_data.append(row)
-
         return csv_data
 
     def suggest_formations(self, result: SquadAnalysisResult, top_n: int = 3) -> List[Dict]:
-        """
-        Suggest optimal formations based on available elite/good performers.
-
-        Args:
-            result: SquadAnalysisResult object
-            top_n: Number of top formations to return
-
-        Returns:
-            List of formation suggestions with scores
-        """
-        # Common FM24 formations with position requirements
         FORMATIONS = [
-            {
-                "name": "4-2-3-1 DM AM Wide",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 2,
-                    PositionCategory.AM: 1,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 1
-                }
-            },
-            {
-                "name": "4-3-3 DM Wide",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 1,
-                    PositionCategory.CM: 2,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 1
-                }
-            },
-            {
-                "name": "4-3-2-1 DM AM Narrow",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 1,
-                    PositionCategory.CM: 2,
-                    PositionCategory.AM: 2,
-                    PositionCategory.ST: 1
-                }
-            },
-            {
-                "name": "5-2-2-1 DM AM",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 3,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 2,
-                    PositionCategory.AM: 2,
-                    PositionCategory.ST: 1
-                }
-            },
-            {
-                "name": "5-2-3 DM Wide",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 3,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 2,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 1
-                }
-            },
-            {
-                "name": "4-4-2",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.CM: 2,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 2
-                }
-            },
-            {
-                "name": "4-2-4 DM Wide",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 2,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 2
-                }
-            },
-            {
-                "name": "4-4-2 Diamond Narrow",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 1,
-                    PositionCategory.CM: 2,
-                    PositionCategory.AM: 1,
-                    PositionCategory.ST: 2
-                }
-            },
-            {
-                "name": "4-2-2-2 DM AM Narrow",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 2,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 2,
-                    PositionCategory.AM: 2,
-                    PositionCategory.ST: 2
-                }
-            },
-            {
-                "name": "5-3-2 DM WB",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 3,
-                    PositionCategory.FB: 2,
-                    PositionCategory.DM: 1,
-                    PositionCategory.CM: 2,
-                    PositionCategory.ST: 2
-                }
-            },
-            {
-                "name": "3-4-3",
-                "positions": {
-                    PositionCategory.GK: 1,
-                    PositionCategory.CB: 3,
-                    PositionCategory.FB: 2,
-                    PositionCategory.CM: 2,
-                    PositionCategory.W: 2,
-                    PositionCategory.ST: 1
-                }
-            }
+            {"name": "4-2-3-1 DM AM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 1, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-3-3 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-3-2-1 DM AM Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.AM: 2, PositionCategory.ST: 1}},
+            {"name": "5-2-2-1 DM AM", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 2, PositionCategory.ST: 1}},
+            {"name": "5-2-3 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-4-2", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 2}},
+            {"name": "4-2-4 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.W: 2, PositionCategory.ST: 2}},
+            {"name": "4-4-2 Diamond Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.AM: 1, PositionCategory.ST: 2}},
+            {"name": "4-2-2-2 DM AM Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 2, PositionCategory.ST: 2}},
+            {"name": "5-3-2 DM WB", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.ST: 2}},
+            {"name": "3-4-3", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}}
         ]
 
-        # Count elite/good players by position
         position_quality = {}
         for pos in PositionCategory:
-            elite_count = len([a for a in result.player_analyses
-                             if a.player.get_position_category() == pos
-                             and a.verdict == PerformanceVerdict.ELITE])
-            good_count = len([a for a in result.player_analyses
-                            if a.player.get_position_category() == pos
-                            and a.verdict == PerformanceVerdict.GOOD])
-            position_quality[pos] = {
-                'elite': elite_count,
-                'good': good_count,
-                'total': elite_count + good_count
-            }
+            analyses = [a for a in result.player_analyses if self.player_evaluator.get_position_category(a.player) == pos]
+            elite_count = len([a for a in analyses if a.verdict == PerformanceVerdict.ELITE])
+            good_count = len([a for a in analyses if a.verdict == PerformanceVerdict.GOOD])
+            position_quality[pos] = {'elite': elite_count, 'good': good_count, 'total': len(analyses)}
 
-        # Get total player count by position (including all performance levels)
-        position_totals = {}
-        for pos in PositionCategory:
-            total = len([a for a in result.player_analyses
-                        if a.player.get_position_category() == pos])
-            position_totals[pos] = total
-
-        # Score each formation
         scored_formations = []
         for formation in FORMATIONS:
             score = 0
             can_fill = True
             position_breakdown = []
-
             for pos, required in formation['positions'].items():
-                available = position_quality.get(pos, {})
-                elite_count = available.get('elite', 0)
-                good_count = available.get('good', 0)
-                total_available = position_totals.get(pos, 0)
-
-                # Check if we have enough total players (any quality)
-                if total_available < required:
+                quality = position_quality.get(pos, {'elite': 0, 'good': 0, 'total': 0})
+                if quality['total'] < required:
                     can_fill = False
                     break
-
-                # Score based on quality (elite = 3 points, good = 2 points, others = 1 point)
-                elite_filled = min(elite_count, required)
-                good_filled = min(good_count, max(0, required - elite_filled))
+                elite_filled = min(quality['elite'], required)
+                good_filled = min(quality['good'], max(0, required - elite_filled))
                 others_filled = max(0, required - elite_filled - good_filled)
-
-                position_score = (elite_filled * 3) + (good_filled * 2) + (others_filled * 1)
-                score += position_score
-
-                position_breakdown.append({
-                    'position': pos.value,
-                    'required': required,
-                    'elite': elite_count,
-                    'good': good_count,
-                    'total_available': total_available
-                })
-
+                score += (elite_filled * 3) + (good_filled * 2) + (others_filled * 1)
+                position_breakdown.append({'position': pos.value, 'required': required, 'elite': quality['elite'], 'good': quality['good'], 'total_available': quality['total']})
             if can_fill:
-                scored_formations.append({
-                    'name': formation['name'],
-                    'score': score,
-                    'breakdown': position_breakdown
-                })
-
-        # Sort by score (descending) and return top N
+                scored_formations.append({'name': formation['name'], 'score': score, 'breakdown': position_breakdown})
         scored_formations.sort(key=lambda x: x['score'], reverse=True)
         return scored_formations[:top_n]

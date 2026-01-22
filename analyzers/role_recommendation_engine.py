@@ -33,7 +33,9 @@ class RoleChangeDetector:
         return role2 in role1_profile.interchangeable_with or role1 in role2_profile.interchangeable_with
 
     def _get_metric(self, player, metric_name, default=0.0):
-        metrics = player.get_normalized_metrics()
+        from services.player_evaluator_service import PlayerEvaluatorService
+        evaluator_service = PlayerEvaluatorService()
+        metrics = evaluator_service.get_normalized_metrics(player)
         return metrics.get(metric_name, default)
 
     def detect_cb_stopper_to_bcb(self, player, current, alt) -> bool:
