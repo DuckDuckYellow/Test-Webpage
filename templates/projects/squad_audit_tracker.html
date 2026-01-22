@@ -220,7 +220,9 @@
                                             title="Value Score = (Role Score / Wage Index) × 100"></i>
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
-                                    <th class="text-center">Performance</th>
+                                    <th class="sortable text-center" data-sort="verdict" style="cursor: pointer;">
+                                        Perf <i class="bi bi-arrow-down-up"></i>
+                                    </th>
                                     <th class="sortable" data-sort="role" style="cursor: pointer;">
                                         Best Role
                                         <i class="bi bi-arrow-down-up"></i>
@@ -255,13 +257,17 @@
 
                                     <!-- Best Role -->
                                     <td>
+                                        {% if analysis.player.mins is none or analysis.player.mins >= 500 %}
                                         {% set role = analysis.player.best_role %}
                                         <div class="role-badge role-{{ role.tier|lower }}"
-                                            onclick='openRoleModal({{ analysis.player.name|tojson }})'
-                                            style="cursor: pointer;">
-                                            {{ role.display_name }}
-                                            <span class="role-score">({{ role.overall_score|round }})</span>
+                                            data-player-name="{{ analysis.player.name }}"
+                                            onclick="openRoleModal(this.dataset.playerName)" style="cursor: pointer;">
+                                            {{ role.display_name|trim }}
                                         </div>
+                                        {% else %}
+                                        <span class="text-muted small" data-bs-toggle="tooltip"
+                                            title="Less than 500 minutes played">Low Sample</span>
+                                        {% endif %}
                                     </td>
 
                                     <!-- Suggested Role -->
@@ -627,6 +633,10 @@
                 } else if (column === 'value') {
                     aVal = parseFloat(a.children[3].dataset.value);
                     bVal = parseFloat(b.children[3].dataset.value);
+                } else if (column === 'role') {
+                    // Extract role name from the badge text (cleaning whitespace)
+                    aVal = a.children[5].textContent.trim();
+                    bVal = b.children[5].textContent.trim();
                 }
 
                 if (direction === 'asc') {
@@ -647,7 +657,8 @@
                 position: 'Position',
                 age: 'Age',
                 value: 'Value Score',
-                verdict: 'Performance'
+                verdict: 'Performance',
+                role: 'Best Role'
             };
             const direction = currentSort.direction === 'asc' ? 'Ascending' : 'Descending';
             currentSortLabel.textContent = `${labels[currentSort.column]} (${direction})`;

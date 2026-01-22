@@ -413,8 +413,20 @@ class Player:
         
         engine = RoleRecommendationEngine()
         
-        # 1. Evaluate all roles
-        self.all_role_scores = engine.evaluate_all_roles(self)
+        # 1. Evaluate only valid roles for player's natural positions
+        positions = self.get_all_possible_positions()
+        allowed_pos_strings = [p.value for p in positions]
+        
+        # DEBUG LOGGING
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Evaluating {self.name}: Pos={self.position}, Parsed={allowed_pos_strings}")
+        
+        self.all_role_scores = engine.evaluate_all_roles(self, allowed_positions=allowed_pos_strings)
+        
+        if not self.all_role_scores:
+            logger.warning(f"No roles found for {self.name} with filters {allowed_pos_strings}. Falling back to all roles.")
+            self.all_role_scores = engine.evaluate_all_roles(self)
         
         # 2. Identify global best role
         self.best_role = self.all_role_scores[0]

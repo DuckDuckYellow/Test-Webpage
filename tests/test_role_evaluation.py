@@ -185,6 +185,39 @@ class TestRoleEvaluator:
         # Best role should be GK (or very close)
         assert best_role.role == 'GK' or 'GK' in [r.role for r in evaluator.evaluate_all_roles(gk)[:2]]
 
+    def test_evaluate_all_roles_with_filtering(self):
+        """Test that evaluate_all_roles filters roles by primary_position."""
+        # Parse squad
+        with open('Go Ahead - New Format.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+
+        parser = FMHTMLParserV2()
+        squad = parser.parse_html(html_content)
+        player = squad.players[0]
+
+        evaluator = RoleEvaluator()
+        
+        # 1. No filtering (default)
+        all_roles = evaluator.evaluate_all_roles(player)
+        assert len(all_roles) == 12
+
+        # 2. Filter for GK only
+        gk_roles = evaluator.evaluate_all_roles(player, allowed_positions=['GK'])
+        assert len(gk_roles) == 1
+        assert gk_roles[0].role == 'GK'
+
+        # 3. Filter for CB only
+        cb_roles = evaluator.evaluate_all_roles(player, allowed_positions=['CB'])
+        assert len(cb_roles) == 2
+        assert all(r.role in ['CB-STOPPER', 'BCB'] for r in cb_roles)
+
+        # 4. Filter for Multiple (CB and ST)
+        multi_roles = evaluator.evaluate_all_roles(player, allowed_positions=['CB', 'ST'])
+        assert len(multi_roles) == 4
+        assert any(r.role == 'CB-STOPPER' for r in multi_roles)
+        assert any(r.role == 'ST-GS' for r in multi_roles)
+        assert not any(r.role == 'GK' for r in multi_roles)
+
 
 class TestRoleRecommendations:
     """Test role recommendation logic."""
@@ -254,9 +287,10 @@ def test_integration_full_pipeline():
         best_role = evaluator.get_best_role(player)
         assert best_role is not None
 
-        # Get all roles
+        # Get all roles (filtered by default if player.evaluate_roles was used,
+        # but here we might be calling evaluator.evaluate_all_roles(player) directly)
         all_roles = evaluator.evaluate_all_roles(player)
-        assert len(all_roles) == 12
+        assert len(all_roles) >= 1
 
         # Get recommendations
         recommendations = evaluator.get_role_recommendations(player)

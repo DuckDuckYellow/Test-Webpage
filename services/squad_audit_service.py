@@ -275,6 +275,9 @@ class SquadAuditService:
         """
         Generate recommendation based on role evaluation.
         """
+        if player.mins is not None and player.mins < 500:
+            return "USE OR SELL - Insufficient data to judge (Sub 500 mins)"
+
         # If alternative role is recommended, prioritize that
         if player.recommended_role:
              return f"{player.recommended_role.role} - {player.role_change_reason}"
