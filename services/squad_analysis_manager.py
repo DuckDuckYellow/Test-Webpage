@@ -5,7 +5,7 @@ Squad Analysis Manager - Orchestrates the analysis workflow.
 import os
 import uuid
 import tempfile
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from flask import session, current_app
 from services.parser_factory import ParserFactory
 from services.squad_audit_service import SquadAuditService
