@@ -8,7 +8,7 @@ from flask import Blueprint, render_template, request, send_file, current_app, s
 from io import BytesIO, StringIO
 import csv
 from pydantic import ValidationError
-from app import csrf
+from extensions import csrf
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/projects')
 

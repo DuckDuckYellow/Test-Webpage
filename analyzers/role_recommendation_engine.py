@@ -123,8 +123,8 @@ class RoleRecommendationEngine:
         self.evaluator = RoleEvaluator()
         self.detector = RoleChangeDetector()
 
-    def evaluate_all_roles(self, player: Player) -> List[RoleScore]:
-        return self.evaluator.evaluate_all_roles(player)
+    def evaluate_all_roles(self, player: Player, allowed_positions: Optional[List[str]] = None) -> List[RoleScore]:
+        return self.evaluator.evaluate_all_roles(player, allowed_positions=allowed_positions)
     
     def get_best_role(self, player: Player) -> RoleScore:
         return self.evaluator.get_best_role(player)

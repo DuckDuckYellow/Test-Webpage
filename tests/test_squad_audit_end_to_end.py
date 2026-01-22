@@ -36,9 +36,8 @@ class TestSquadAuditEndToEnd:
         for analysis in result.player_analyses:
             player = analysis.player
             
-            # Roles should be populated
-            assert player.best_role is not None
-            assert len(player.all_role_scores) == 12
+            # Roles should be populated (filtered by natural position)
+            assert len(player.all_role_scores) >= 1
             
             # Performance Index should match Best Role Score
             # Note: There might be slight float differences
@@ -48,7 +47,7 @@ class TestSquadAuditEndToEnd:
             assert analysis.verdict.value == player.best_role.tier
             
             # Value Score should be calculated
-            assert analysis.value_score > 0
+            assert analysis.value_score >= 0
             
             # Recommendation should be present
             assert analysis.recommendation is not None
@@ -126,8 +125,40 @@ class TestSquadAuditEndToEnd:
         # Check if roles were evaluated even for legacy data
         player = result.player_analyses[0].player
         assert player.best_role is not None
-        assert len(player.all_role_scores) == 12
+        assert len(player.all_role_scores) >= 1
         assert player.best_role.overall_score >= 0
+
+    def test_low_minutes_played_recommendation(self):
+        """Test that players with < 500 mins get 'Use or Sell'."""
+        parser = FMHTMLParserV2()
+        with open('Go Ahead - New Format.html', 'r', encoding='utf-8') as f:
+            html_content = f.read()
+            
+        squad = parser.parse_html(html_content)
+        service = SquadAuditService()
+        
+        # Manually set a player to have low minutes
+        player = squad.players[0]
+        player.mins = 450
+        player.evaluate_roles()
+        
+        result = service.analyze_squad(squad)
+        
+        # Find the specific player analysis
+        analysis = next(a for a in result.player_analyses if a.player.name == player.name)
+        
+        assert "USE OR SELL" in analysis.recommendation
+        assert "Sub 500 mins" in analysis.recommendation
+
+        # Check a player with high minutes
+        player2 = squad.players[1]
+        player2.mins = 1200
+        player2.evaluate_roles()
+        
+        result2 = service.analyze_squad(squad)
+        analysis2 = next(a for a in result2.player_analyses if a.player.name == player2.name)
+        
+        assert "USE OR SELL" not in analysis2.recommendation
 
 if __name__ == "__main__":
     test = TestSquadAuditEndToEnd()

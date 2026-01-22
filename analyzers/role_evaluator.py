@@ -180,12 +180,14 @@ class RoleEvaluator:
         else:
             return 'POOR'
 
-    def evaluate_all_roles(self, player: Player) -> List[RoleScore]:
+    def evaluate_all_roles(self, player: Player, allowed_positions: Optional[List[str]] = None) -> List[RoleScore]:
         """
         Evaluate player against all 12 roles.
 
         Args:
             player: Player to evaluate
+            allowed_positions: Optional list of position strings (e.g. ['GK', 'CB', 'ST'])
+                              to restrict evaluation to relevant roles.
 
         Returns:
             List of RoleScore objects, sorted by score (best to worst)
@@ -193,6 +195,13 @@ class RoleEvaluator:
         role_scores = []
 
         for role_name, role_profile in ROLES.items():
+            # If allowed_positions is provided, skip roles that don't match
+            if allowed_positions is not None and role_profile.primary_position not in allowed_positions:
+                # import logging
+                # logger = logging.getLogger(__name__)
+                # logger.debug(f"Skipping role {role_name} (needs {role_profile.primary_position})")
+                continue
+
             score = self.evaluate_player_for_role(player, role_profile)
             role_scores.append(score)
 

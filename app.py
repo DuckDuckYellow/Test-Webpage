@@ -54,6 +54,7 @@ def create_app(config_class=None):
     if config_class is None:
         config_class = get_config()
     app.config.from_object(config_class)
+    app.debug = True  # Forced on for Round 2 debugging
 
     # Initialize extensions
     csrf.init_app(app)
@@ -213,7 +214,7 @@ app = create_app()
 
 if __name__ == "__main__":
     # Development server
-    debug_mode = app.config.get('DEBUG', False)
+    debug_mode = True  # Forced on for debugging Round 2 issues
     env_name = os.environ.get('FLASK_ENV', 'development')
 
     # Display startup information
