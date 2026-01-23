@@ -45,6 +45,17 @@ class RoleEvaluator:
         """
         Calculate how well player fits a specific role.
 
+        Uses 70/30 weighted scoring (as of 2026-01-23 migration):
+        - Primary KPIs: 70% weight (role-defining metrics)
+        - Secondary KPIs: 30% weight (supporting attributes)
+
+        Example:
+            Player with elite primary metrics (avg 100) and poor secondary (avg 40):
+            Overall = (100 * 0.7) + (40 * 0.3) = 70 + 12 = 82 (GOOD tier)
+
+            Player with poor primary metrics (avg 40) and elite secondary (avg 100):
+            Overall = (40 * 0.7) + (100 * 0.3) = 28 + 30 = 58 (AVERAGE tier)
+
         Args:
             player: Player object with metrics
             role: RoleProfile to evaluate against
@@ -57,20 +68,21 @@ class RoleEvaluator:
         evaluator_service = PlayerEvaluatorService()
         player_metrics = evaluator_service.get_normalized_metrics(player)
 
-        role_score = 0.0
+        # Score PRIMARY KPIs (70% weight)
+        primary_score = 0.0
+        primary_count = 0
+        primary_strengths = []
+        primary_weaknesses = []
         metric_scores = {}
-        strengths = []
-        weaknesses = []
-        metric_count = 0
 
-        for metric in role.metrics:
+        for metric in role.primary_metrics:
             if metric not in player_metrics:
                 continue
 
             player_value = player_metrics[metric]
             thresholds = role.thresholds[metric]
 
-            # Calculate score for this metric (0-100+ scale)
+            # Calculate score for this metric (0-120 scale)
             tier, score = self._score_metric(player_value, thresholds)
 
             metric_scores[metric] = {
@@ -79,25 +91,78 @@ class RoleEvaluator:
                 'score': score,
                 'threshold_good': thresholds['good'],
                 'threshold_ok': thresholds['ok'],
-                'threshold_poor': thresholds['poor']
+                'threshold_poor': thresholds['poor'],
+                'weight': 'PRIMARY'  # Tag metric type for UI display
             }
 
             # Track strengths and weaknesses
             if tier == 'ELITE':
-                strengths.append(metric)
+                primary_strengths.append(metric)
             elif tier == 'CRITICAL':
-                weaknesses.append(metric)
+                primary_weaknesses.append(metric)
 
-            role_score += score
-            metric_count += 1
+            primary_score += score
+            primary_count += 1
 
-        # Overall role score = average of all metric scores
-        if metric_count > 0:
-            overall_score = role_score / metric_count
+        # Score SECONDARY KPIs (30% weight)
+        secondary_score = 0.0
+        secondary_count = 0
+        secondary_strengths = []
+        secondary_weaknesses = []
+
+        for metric in role.secondary_metrics:
+            if metric not in player_metrics:
+                continue
+
+            player_value = player_metrics[metric]
+            thresholds = role.thresholds[metric]
+
+            # Calculate score for this metric (0-120 scale)
+            tier, score = self._score_metric(player_value, thresholds)
+
+            metric_scores[metric] = {
+                'value': player_value,
+                'tier': tier,
+                'score': score,
+                'threshold_good': thresholds['good'],
+                'threshold_ok': thresholds['ok'],
+                'threshold_poor': thresholds['poor'],
+                'weight': 'SECONDARY'  # Tag metric type for UI display
+            }
+
+            # Track strengths and weaknesses
+            if tier == 'ELITE':
+                secondary_strengths.append(metric)
+            elif tier == 'CRITICAL':
+                secondary_weaknesses.append(metric)
+
+            secondary_score += score
+            secondary_count += 1
+
+        # Calculate weighted overall score
+        if primary_count > 0 and secondary_count > 0:
+            # Both primary and secondary metrics available (normal case)
+            primary_avg = primary_score / primary_count
+            secondary_avg = secondary_score / secondary_count
+            overall_score = (primary_avg * 0.7) + (secondary_avg * 0.3)
+
+        elif primary_count > 0:
+            # Only primary metrics available (edge case: missing secondary data)
+            overall_score = primary_score / primary_count
+
+        elif secondary_count > 0:
+            # Only secondary metrics available (edge case: missing primary data)
+            overall_score = secondary_score / secondary_count
+
         else:
+            # No metrics available (should not happen with valid data)
             overall_score = 0.0
 
-        # Determine overall tier
+        # Combine strengths and weaknesses from both categories
+        strengths = primary_strengths + secondary_strengths
+        weaknesses = primary_weaknesses + secondary_weaknesses
+
+        # Determine overall tier based on weighted score
         overall_tier = self._score_to_tier(overall_score)
 
         return RoleScore(
