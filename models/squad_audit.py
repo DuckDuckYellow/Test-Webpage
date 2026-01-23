@@ -164,5 +164,15 @@ class SquadAnalysisResult:
     def get_transfer_listed_elite(self) -> List[PlayerAnalysis]:
         return [a for a in self.get_elite_players() if a.player.get_status_flag() == StatusFlag.TRANSFER_LISTED]
 
+    def get_low_value_players(self) -> List[PlayerAnalysis]:
+        """
+        Get players with value score < 50 who are not already in poor performers.
+        These are players who may be performing adequately but are overpaid.
+        """
+        return [a for a in self.player_analyses
+                if a.value_score < 50
+                and a.verdict != PerformanceVerdict.POOR
+                and (a.player.mins is not None and a.player.mins >= 200)]
+
     def get_sorted_by_value(self) -> List[PlayerAnalysis]:
         return sorted(self.player_analyses, key=lambda x: x.value_score, reverse=True)
