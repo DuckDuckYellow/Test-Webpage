@@ -130,18 +130,35 @@ class PlayerEvaluatorService:
         """
         from analyzers.role_recommendation_engine import RoleRecommendationEngine
         engine = RoleRecommendationEngine()
-        
+
+        # Get the actual roles this player can play based on their position string
+        # This is more specific than just position categories (e.g., distinguishes AM(C) vs WAP/WAS)
+        playable_roles = engine._map_position_to_roles(player.position)
+
+        # Also get position categories for backwards compatibility with formation suggestions
         positions = self.get_all_possible_positions(player)
-        allowed_pos_strings = [p.value for p in positions]
-        
-        player.all_role_scores = engine.evaluate_all_roles(player, allowed_positions=allowed_pos_strings)
-        
+
+        # Evaluate only roles the player can actually play
+        if playable_roles:
+            from models.role_definitions import ROLES
+            player.all_role_scores = []
+            for role_name in playable_roles:
+                if role_name in ROLES:
+                    role_profile = ROLES[role_name]
+                    score = engine.evaluator.evaluate_player_for_role(player, role_profile)
+                    player.all_role_scores.append(score)
+            # Sort by overall score
+            player.all_role_scores.sort(key=lambda s: s.overall_score, reverse=True)
+        else:
+            # Fallback: evaluate all roles
+            player.all_role_scores = engine.evaluate_all_roles(player)
+
         if not player.all_role_scores:
             player.all_role_scores = engine.evaluate_all_roles(player)
-            
+
         player.best_role = player.all_role_scores[0]
         player.current_role_score = engine.get_best_role_in_current_position(player, player.all_role_scores)
-        
+
         recommendations = engine.get_role_recommendations(player)
         if recommendations:
             top_rec = recommendations[0]

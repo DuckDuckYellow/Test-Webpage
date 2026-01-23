@@ -29,16 +29,56 @@ POSITION_METRICS = {
 
 # Metric display names for readable output
 METRIC_NAMES = {
+    # Goalkeeper metrics
     "sv_pct": "Save %",
+    "save_pct": "Save %",
     "xgp": "xG Prevented",
+    "xgp_90": "xG Prevented/90",
+    "conceded_90": "Conceded/90",
+
+    # Passing metrics
     "pas_pct": "Pass %",
-    "av_rat": "Avg Rating",
+    "pass_pct": "Pass %",
+    "prog_passes_90": "Prog Passes/90",
+
+    # Defensive metrics
     "k_tck_90": "Key Tackles/90",
+    "tck_90": "Tackles/90",
+    "tackles_90": "Tackles/90",
     "int_90": "Int/90",
+    "interceptions_90": "Int/90",
     "hdr_pct": "Header %",
-    "drb_90": "Dribbles/90",
+    "header_win_pct": "Header Win %",
+    "headers_won_90": "Headers Won/90",
+    "hdrs_w_90": "Headers Won/90",
     "blk_90": "Blocks/90",
+    "blocks_90": "Blocks/90",
+    "shts_blckd_90": "Shots Blocked/90",
+    "clr_90": "Clearances/90",
+    "clearances_90": "Clearances/90",
+    "pres_c_90": "Pressures/90",
+    "pressures_90": "Pressures/90",
+
+    # Attacking metrics
+    "drb_90": "Dribbles/90",
+    "dribbles_90": "Dribbles/90",
     "shot_90": "Shots/90",
+    "sht_90": "Shots/90",
+    "shots_on_target_90": "Shots on Target/90",
     "ch_c_90": "Chances Created/90",
-    "xg": "xG"
+    "key_passes_90": "Key Passes/90",
+    "op_kp_90": "Key Passes/90",
+    "xg": "xG",
+    "xg_90": "xG/90",
+    "np_xg_90": "npxG/90",
+    "xa_90": "xA/90",
+    "xassists_90": "xA/90",
+    "conv_pct": "Conversion %",
+    "conversion_pct": "Conversion %",
+    "op_crs_c_90": "Crosses/90",
+    "crosses_90": "Crosses/90",
+    "sprints_90": "Sprints/90",
+
+    # General metrics
+    "av_rat": "Avg Rating"
 }

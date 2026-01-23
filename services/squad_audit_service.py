@@ -73,6 +73,10 @@ class SquadAuditService:
         if 200 <= mins < 500:
             self._apply_bayesian_average(player, benchmarks, mins)
 
+        # Store all possible positions for filtering
+        if not hasattr(player, 'all_possible_positions'):
+            player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
+
         # Evaluate roles (uses adjusted stats if Bayesian Average was applied)
         if not player.best_role:
             self.player_evaluator.evaluate_roles(player)
@@ -83,11 +87,11 @@ class SquadAuditService:
 
         # Add "Projected" prefix for Soft Floor players
         if 200 <= mins < 500:
-            recommendation = f"PROJECTED - {self._generate_role_recommendation(player)}"
-            top_metrics = [f"Projected: {m}" for m in [f"{metric}: Elite" for metric in player.best_role.strengths[:2]]]
+            recommendation = f"PROJECTED - {self._generate_role_recommendation(player, value_score)}"
+            top_metrics = self._format_all_metrics(player.best_role.metric_scores, projected=True)
         else:
-            recommendation = self._generate_role_recommendation(player)
-            top_metrics = [f"{m}: Elite" for m in player.best_role.strengths[:2]]
+            recommendation = self._generate_role_recommendation(player, value_score)
+            top_metrics = self._format_all_metrics(player.best_role.metric_scores)
 
         contract_warning = self._check_contract_warning(player.expires)
 
@@ -165,31 +169,84 @@ class SquadAuditService:
         wage_index = max(0.1, player_wage / squad_avg_wage)
         return performance_index / wage_index
 
-    def _generate_role_recommendation(self, player: Player) -> str:
+    def _generate_role_recommendation(self, player: Player, value_score: float) -> str:
         if player.mins is not None and player.mins < 500:
             return "USE OR SELL - Insufficient data to judge (Sub 500 mins)"
 
+        # Check for low value score (poor value for money)
+        if value_score < 50:
+            if player.best_role and player.best_role.tier == 'ELITE':
+                return "CONSIDER WAGE REDUCTION - Elite performance but overpaid"
+            else:
+                return "CONSIDER SALE - Poor value for wage cost"
+
         if player.recommended_role:
              return f"{player.recommended_role.role} - {player.role_change_reason}"
-             
+
         role = player.best_role
         status = player.get_status_flag()
-        
+
         if role.tier == 'ELITE':
             if status == StatusFlag.TRANSFER_LISTED: return "KEEP & PLAY - Elite ratings despite transfer list"
             elif status == StatusFlag.U21: return "PROMOTE - Elite young talent"
             elif player.apps < 10: return "INCREASE MINUTES - Elite output per 90"
             else: return "CORE STARTER - Elite performance"
-                
+
         elif role.tier == 'GOOD':
             if status == StatusFlag.TRANSFER_LISTED: return "EVALUATE - Good depth option"
             return "ROTATION/STARTER - Solid performance"
-            
+
         elif role.tier == 'POOR':
             if status == StatusFlag.U21: return "DEVELOPMENT REQUIRED - Not ready"
             return "SELL/REPLACE - Below standard"
-            
+
         return "BACKUP - Average performance"
+
+    def _format_all_metrics(self, metric_scores: Dict[str, Dict], projected: bool = False) -> List[str]:
+        """
+        Format all metrics with their tier ratings for display.
+
+        Shows all PRIMARY and SECONDARY metrics evaluated, organized by tier.
+        Includes metrics that are good/average/poor to give full picture.
+        """
+        from models.constants import METRIC_NAMES
+
+        if not metric_scores:
+            return ["N/A - No metrics"]
+
+        # Group metrics by tier
+        elite_metrics = []
+        good_metrics = []
+        average_metrics = []
+        poor_metrics = []
+
+        for metric_name, metric_data in metric_scores.items():
+            tier = metric_data.get('tier', 'UNKNOWN')
+            display_name = METRIC_NAMES.get(metric_name, metric_name.replace('_', ' ').title())
+
+            if tier == 'ELITE':
+                elite_metrics.append(display_name)
+            elif tier == 'GOOD':
+                good_metrics.append(display_name)
+            elif tier == 'AVERAGE':
+                average_metrics.append(display_name)
+            else:  # CRITICAL or POOR
+                poor_metrics.append(display_name)
+
+        # Format output
+        result = []
+        prefix = "Projected: " if projected else ""
+
+        if elite_metrics:
+            result.append(f"{prefix}Elite: {', '.join(elite_metrics)}")
+        if good_metrics:
+            result.append(f"{prefix}Good: {', '.join(good_metrics)}")
+        if average_metrics:
+            result.append(f"{prefix}Average: {', '.join(average_metrics)}")
+        if poor_metrics:
+            result.append(f"{prefix}Poor: {', '.join(poor_metrics)}")
+
+        return result if result else ["N/A"]
 
     def _check_contract_warning(self, expires: str) -> bool:
         if not expires or expires == "-": return False
@@ -259,9 +316,25 @@ class SquadAuditService:
                 others_filled = max(0, required - elite_filled - good_filled)
                 # Star Power Weighting: 10/4/1 (prioritizes formations that maximize elite players)
                 score += (elite_filled * 10) + (good_filled * 4) + (others_filled * 1)
-                position_breakdown.append({'position': pos.value, 'required': required, 'elite': quality['elite'], 'good': quality['good'], 'total_available': quality['total']})
+                # Calculate recruitment needed
+                recruitment_needed = max(0, required - quality['total'])
+                position_breakdown.append({
+                    'position': pos.value,
+                    'required': required,
+                    'elite': quality['elite'],
+                    'good': quality['good'],
+                    'total_available': quality['total'],
+                    'recruitment_needed': recruitment_needed
+                })
             if can_fill:
-                scored_formations.append({'name': formation['name'], 'score': score, 'breakdown': position_breakdown})
+                # Calculate total recruitment needed for this formation
+                total_recruitment = sum(pos['recruitment_needed'] for pos in position_breakdown)
+                scored_formations.append({
+                    'name': formation['name'],
+                    'score': score,
+                    'breakdown': position_breakdown,
+                    'total_recruitment_needed': total_recruitment
+                })
 
         # Sort by score (highest first) - Star Power Weighting prioritizes elite players
         scored_formations.sort(key=lambda x: x['score'], reverse=True)

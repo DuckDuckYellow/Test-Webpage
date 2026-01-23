@@ -237,6 +237,7 @@
                                 {% for analysis in analysis_result.get_sorted_by_value() %}
                                 <tr class="player-row" data-name="{{ analysis.player.name|lower }}"
                                     data-position="{{ analysis.player.get_position_category().value }}"
+                                    data-all-positions="{% for pos in analysis.player.all_possible_positions %}{{ pos.value }}{% if not loop.last %},{% endif %}{% endfor %}"
                                     data-verdict="{{ analysis.player.best_role.tier }}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
@@ -278,7 +279,11 @@
                                     </td>
                                     <td class="small">
                                         {% if analysis.top_metrics %}
-                                        {{ analysis.top_metrics|join(' | ') }}
+                                        <div class="d-flex flex-column gap-1">
+                                            {% for metric_line in analysis.top_metrics %}
+                                            <div>{{ metric_line }}</div>
+                                            {% endfor %}
+                                        </div>
                                         {% else %}
                                         <span class="text-muted">N/A</span>
                                         {% endif %}
@@ -480,6 +485,11 @@
                                 <span class="badge bg-secondary me-2">3rd Choice</span>
                                 {% endif %}
                                 <strong>{{ formation.name }}</strong>
+                                {% if formation.total_recruitment_needed > 0 %}
+                                <span class="badge bg-danger ms-2">{{ formation.total_recruitment_needed }} recruit{{ 's' if formation.total_recruitment_needed != 1 else '' }} needed</span>
+                                {% else %}
+                                <span class="badge bg-success ms-2">Squad complete</span>
+                                {% endif %}
                             </h6>
                             <span class="badge bg-dark">Quality Score: {{ formation.score }}</span>
                         </div>
@@ -488,7 +498,7 @@
                             {% for pos_data in formation.breakdown %}
                             <div class="col-6 col-md-4 col-lg-3">
                                 <div
-                                    class="card border {% if pos_data.elite >= pos_data.required %}border-success{% elif pos_data.elite + pos_data.good >= pos_data.required %}border-info{% else %}border-warning{% endif %} bg-light">
+                                    class="card border {% if pos_data.elite >= pos_data.required %}border-success{% elif pos_data.elite + pos_data.good >= pos_data.required %}border-info{% elif pos_data.recruitment_needed > 0 %}border-danger{% else %}border-warning{% endif %} bg-light">
                                     <div class="card-body p-2 small">
                                         <div class="fw-bold">{{ pos_data.position }} ({{ pos_data.required }} needed)
                                         </div>
@@ -496,6 +506,10 @@
                                             <i class="bi bi-star-fill text-success"></i> {{ pos_data.elite }} Elite
                                             <br>
                                             <i class="bi bi-star-half text-info"></i> {{ pos_data.good }} Good
+                                            {% if pos_data.recruitment_needed > 0 %}
+                                            <br>
+                                            <i class="bi bi-plus-circle text-danger"></i> <span class="text-danger fw-bold">{{ pos_data.recruitment_needed }} to recruit</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -706,10 +720,11 @@
             rows.forEach(row => {
                 const name = row.dataset.name;
                 const position = row.dataset.position;
+                const allPositions = row.dataset.allPositions ? row.dataset.allPositions.split(',') : [position];
                 const verdict = row.dataset.verdict;
 
                 const matchesSearch = !searchTerm || name.includes(searchTerm);
-                const matchesPosition = !selectedPosition || position === selectedPosition;
+                const matchesPosition = !selectedPosition || allPositions.includes(selectedPosition);
                 const matchesVerdict = !selectedVerdict || verdict === selectedVerdict;
 
                 if (matchesSearch && matchesPosition && matchesVerdict) {
