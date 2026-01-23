@@ -73,9 +73,8 @@ class SquadAuditService:
         if 200 <= mins < 500:
             self._apply_bayesian_average(player, benchmarks, mins)
 
-        # Store all possible positions for filtering
-        if not hasattr(player, 'all_possible_positions'):
-            player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
+        # Store all possible positions for filtering (always set this)
+        player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
 
         # Evaluate roles (uses adjusted stats if Bayesian Average was applied)
         if not player.best_role:
@@ -316,8 +315,9 @@ class SquadAuditService:
                 others_filled = max(0, required - elite_filled - good_filled)
                 # Star Power Weighting: 10/4/1 (prioritizes formations that maximize elite players)
                 score += (elite_filled * 10) + (good_filled * 4) + (others_filled * 1)
-                # Calculate recruitment needed
-                recruitment_needed = max(0, required - quality['total'])
+                # Calculate recruitment needed (elite + good players needed)
+                quality_players_available = quality['elite'] + quality['good']
+                recruitment_needed = max(0, required - quality_players_available)
                 position_breakdown.append({
                     'position': pos.value,
                     'required': required,

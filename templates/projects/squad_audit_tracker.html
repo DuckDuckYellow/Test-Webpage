@@ -391,12 +391,12 @@
             <div class="card border-0 shadow-sm border-start border-danger border-4">
                 <div class="card-body">
                     <h5 class="card-title text-danger">
-                        <i class="bi bi-exclamation-circle-fill"></i> Poor Performers - Potential Wage Savings
+                        <i class="bi bi-exclamation-circle-fill"></i> Poor Performers - Priority Sales
                     </h5>
                     <p class="text-muted small mb-3">
-                        Players with poor value scores AND poor on-pitch performance.
-                        Exiting these {{ poor_performers|length }} player(s) could save
-                        <strong class="text-danger">£{{ "{:,.0f}".format(total_poor_wages) }} p/w</strong>
+                        Players with POOR on-pitch performance ratings.
+                        These {{ poor_performers|length }} player(s) are underperforming and should be priority sales.
+                        Potential savings: <strong class="text-danger">£{{ "{:,.0f}".format(total_poor_wages) }} p/w</strong>
                         (£{{ "{:,.0f}".format(total_poor_wages * 52) }}/year).
                     </p>
                     <div class="table-responsive">
@@ -446,6 +446,82 @@
                                     <td class="text-end fw-bold text-danger">£{{ "{:,.0f}".format(total_poor_wages) }}
                                         p/w</td>
                                     <td class="text-muted small">(£{{ "{:,.0f}".format(total_poor_wages * 52) }}/year)
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Low Value Players Section (Not Poor, but Overpaid) -->
+    {% set low_value_players = analysis_result.get_low_value_players() %}
+    {% if low_value_players %}
+    {% set total_low_value_wages = low_value_players | sum(attribute='player.wage') %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Overpaid Players - Consider Sale or Wage Reduction
+                    </h5>
+                    <p class="text-muted small mb-3">
+                        Players with value scores below 50 despite adequate performance.
+                        These {{ low_value_players|length }} player(s) may be overpaid relative to output.
+                        Potential savings: <strong class="text-warning">£{{ "{:,.0f}".format(total_low_value_wages) }} p/w</strong>
+                        (£{{ "{:,.0f}".format(total_low_value_wages * 52) }}/year).
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Player</th>
+                                    <th class="text-center">Position</th>
+                                    <th class="text-center">Age</th>
+                                    <th class="text-end">Value Score</th>
+                                    <th class="text-end">Performance</th>
+                                    <th class="text-end">Wage</th>
+                                    <th>Recommendation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for analysis in low_value_players %}
+                                <tr>
+                                    <td class="fw-semibold">{{ analysis.player.name }}</td>
+                                    <td class="text-center"><span class="badge bg-secondary">{{
+                                            analysis.player.get_position_category().value }}</span></td>
+                                    <td class="text-center">{{ analysis.player.age }}</td>
+                                    <td class="text-end">
+                                        <span class="badge bg-{{ analysis.get_value_score_color() }}">
+                                            {{ "%.1f"|format(analysis.value_score) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <span class="badge bg-{{ analysis.get_verdict_color() }}">
+                                            {{ analysis.verdict.value }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
+                                    <td class="small">
+                                        {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
+                                        {% if rec_parts|length == 2 %}
+                                        <strong>{{ rec_parts[0] }}</strong> - {{ rec_parts[1] }}
+                                        {% else %}
+                                        {{ analysis.recommendation }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="5" class="text-end fw-bold">Potential Wage Savings:</td>
+                                    <td class="text-end fw-bold text-warning">£{{ "{:,.0f}".format(total_low_value_wages) }}
+                                        p/w</td>
+                                    <td class="text-muted small">(£{{ "{:,.0f}".format(total_low_value_wages * 52) }}/year)
                                     </td>
                                 </tr>
                             </tfoot>
