@@ -227,7 +227,6 @@
                                         Best Role
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
-                                    <th>Suggested Role</th>
                                     <th class="text-end">Wage</th>
                                     <th class="text-center">Contract</th>
                                     <th>Stats</th>
@@ -267,21 +266,6 @@
                                         {% else %}
                                         <span class="text-muted small" data-bs-toggle="tooltip"
                                             title="Less than 500 minutes played">Low Sample</span>
-                                        {% endif %}
-                                    </td>
-
-                                    <!-- Suggested Role -->
-                                    <td>
-                                        {% if analysis.player.recommended_role %}
-                                        {% set rec = analysis.player.recommended_role %}
-                                        <div class="role-suggestion">
-                                            <span class="suggested-badge">{{ rec.display_name }}</span>
-                                            <small class="text-success fw-bold">+{{ (rec.overall_score -
-                                                analysis.player.best_role.overall_score)|round|int }}</small>
-                                            <div class="reason">{{ analysis.player.role_change_reason }}</div>
-                                        </div>
-                                        {% else %}
-                                        <span class="text-muted small">-</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
@@ -585,14 +569,13 @@
         const visibleCount = document.getElementById('visibleCount');
         const currentSortLabel = document.getElementById('currentSort');
 
-        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-
         // Initialize current sort state (default: value score descending)
         let currentSort = { column: 'value', direction: 'desc' };
 
         window.openRoleModal = function (playerName) {
             const modal = new bootstrap.Modal(document.getElementById('roleDetailModal'));
             const content = document.getElementById('roleModalContent');
+            const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
 
             content.innerHTML = `
                 <div class="modal-body text-center py-5">
@@ -760,6 +743,7 @@
                 const playerName = this.dataset.playerName;
                 const newPosition = this.value;
                 const row = this.closest('tr');
+                const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
 
                 // Show loading state
                 const originalHTML = row.innerHTML;
@@ -840,16 +824,16 @@
             else if (data.verdict === 'POOR') verdictColor = 'danger';
             verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
 
-            // Update top metrics cell (index 9)
-            const metricsCell = row.children[9];
+            // Update top metrics cell (index 8 - after removing Suggested Role column)
+            const metricsCell = row.children[8];
             if (data.top_metrics && data.top_metrics.length > 0) {
                 metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
             } else {
                 metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
             }
 
-            // Update recommendation cell (index 10)
-            const recCell = row.children[10];
+            // Update recommendation cell (index 9 - after removing Suggested Role column)
+            const recCell = row.children[9];
             const recParts = data.recommendation.split(' - ', 2);
             if (recParts.length === 2) {
                 recCell.innerHTML = `
