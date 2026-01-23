@@ -126,7 +126,7 @@
                             <a href="{{ url_for('projects.export_squad_audit') }}" class="btn btn-success me-2">
                                 <i class="bi bi-download"></i> Export CSV
                             </a>
-                            <a href="{{ url_for('projects.squad_audit_tracker') }}" class="btn btn-outline-secondary">
+                            <a href="{{ url_for('projects.new_squad_audit') }}" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left"></i> New Analysis
                             </a>
                         </div>
@@ -237,7 +237,7 @@
                             <tbody>
                                 {% for analysis in analysis_result.get_sorted_by_value() %}
                                 <tr class="player-row" data-name="{{ analysis.player.name|lower }}"
-                                    data-position="{{ analysis.player.best_role.role }}"
+                                    data-position="{{ analysis.player.get_position_category().value }}"
                                     data-verdict="{{ analysis.player.best_role.tier }}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
@@ -586,6 +586,9 @@
         const currentSortLabel = document.getElementById('currentSort');
 
         const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+        // Initialize current sort state (default: value score descending)
+        let currentSort = { column: 'value', direction: 'desc' };
 
         window.openRoleModal = function (playerName) {
             const modal = new bootstrap.Modal(document.getElementById('roleDetailModal'));
