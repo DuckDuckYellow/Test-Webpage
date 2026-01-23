@@ -102,6 +102,13 @@ def squad_audit_tracker():
         formation_suggestions=formation_suggestions
     )
 
+@projects_bp.route("/squad-audit-tracker/new")
+def new_squad_audit():
+    """Clear session and start new analysis."""
+    session.pop('squad_analysis_id', None)
+    from flask import redirect, url_for
+    return redirect(url_for('projects.squad_audit_tracker'))
+
 @projects_bp.route("/squad-audit-tracker/export")
 def export_squad_audit():
     """Export squad audit to CSV."""

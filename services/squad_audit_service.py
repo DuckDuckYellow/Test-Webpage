@@ -234,9 +234,12 @@ class SquadAuditService:
             {"name": "3-4-3", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}}
         ]
 
+        # Build position quality considering all positions each player can play
         position_quality = {}
         for pos in PositionCategory:
-            analyses = [a for a in result.player_analyses if self.player_evaluator.get_position_category(a.player) == pos]
+            # Get all players who CAN play this position (not just those whose best position is this)
+            analyses = [a for a in result.player_analyses
+                       if pos in self.player_evaluator.get_all_possible_positions(a.player)]
             elite_count = len([a for a in analyses if a.verdict == PerformanceVerdict.ELITE])
             good_count = len([a for a in analyses if a.verdict == PerformanceVerdict.GOOD])
             position_quality[pos] = {'elite': elite_count, 'good': good_count, 'total': len(analyses)}
