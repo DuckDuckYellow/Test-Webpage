@@ -46,17 +46,51 @@ class SquadAuditService:
         squad_avg_wage: float,
         position_override: Optional[PositionCategory] = None
     ) -> PlayerAnalysis:
-        """Analyze a single player."""
+        """
+        Analyze a single player with minutes-based reliability thresholds.
+
+        Minutes Thresholds:
+        - < 200 mins: Hard Floor - Insufficient data, bypass performance calculation
+        - 200-500 mins: Soft Floor - Apply Bayesian Average to prevent one-game outliers
+        - > 500 mins: Normal calculation with full player stats
+        """
+        mins = player.mins if player.mins is not None else 0
+
+        # HARD FLOOR: < 200 minutes
+        if mins < 200:
+            # Bypass performance calculation entirely
+            return PlayerAnalysis(
+                player=player,
+                performance_index=0.0,  # Not calculated
+                value_score=0.0,        # Not calculated
+                verdict=PerformanceVerdict.POOR,  # Default tier
+                recommendation="INSUFFICIENT DATA - Less than 200 minutes played",
+                top_metrics=["N/A - Insufficient Data"],
+                contract_warning=self._check_contract_warning(player.expires)
+            )
+
+        # SOFT FLOOR: 200-500 minutes - Apply Bayesian Average
+        if 200 <= mins < 500:
+            self._apply_bayesian_average(player, benchmarks, mins)
+
+        # Evaluate roles (uses adjusted stats if Bayesian Average was applied)
         if not player.best_role:
             self.player_evaluator.evaluate_roles(player)
-            
+
         performance_index = player.best_role.overall_score
         value_score = self._calculate_value_score(performance_index, player.wage, squad_avg_wage)
         verdict = PerformanceVerdict(player.best_role.tier)
-        recommendation = self._generate_role_recommendation(player)
+
+        # Add "Projected" prefix for Soft Floor players
+        if 200 <= mins < 500:
+            recommendation = f"PROJECTED - {self._generate_role_recommendation(player)}"
+            top_metrics = [f"Projected: {m}" for m in [f"{metric}: Elite" for metric in player.best_role.strengths[:2]]]
+        else:
+            recommendation = self._generate_role_recommendation(player)
+            top_metrics = [f"{m}: Elite" for m in player.best_role.strengths[:2]]
+
         contract_warning = self._check_contract_warning(player.expires)
-        top_metrics = [f"{m}: Elite" for m in player.best_role.strengths[:2]]
-        
+
         return PlayerAnalysis(
             player=player,
             performance_index=performance_index,
@@ -66,6 +100,43 @@ class SquadAuditService:
             top_metrics=top_metrics,
             contract_warning=contract_warning
         )
+
+    def _apply_bayesian_average(self, player: Player, benchmarks: Dict[str, Dict[str, float]], mins: int):
+        """
+        Apply Bayesian Average to pull player stats toward squad average.
+
+        This prevents one-game outliers from skewing analysis for players with 200-500 minutes.
+        The weight transitions linearly:
+        - 200 mins: 0% player stats, 100% squad average (full regression to mean)
+        - 350 mins: 50% player stats, 50% squad average (balanced blend)
+        - 500 mins: 100% player stats, 0% squad average (no regression)
+
+        Formula: adjusted_stat = (player_stat × weight) + (squad_avg × (1 - weight))
+
+        Args:
+            player: Player to adjust (modified in-place)
+            benchmarks: Squad averages by position
+            mins: Minutes played (must be 200-500)
+        """
+        # Calculate player weight (0.0 at 200 mins → 1.0 at 500 mins)
+        player_weight = (mins - 200) / 300.0
+
+        # Get position benchmarks for this player's position
+        position = self.player_evaluator.get_position_category(player)
+        position_benchmarks = benchmarks.get(position.value, {})
+
+        if not position_benchmarks:
+            return  # No adjustment if no benchmarks available for this position
+
+        # Apply weighted average to each metric in the position's benchmark
+        for metric_attr, squad_avg in position_benchmarks.items():
+            player_value = getattr(player, metric_attr, None)
+
+            # Only adjust if player has a valid value for this metric
+            if player_value is not None:
+                # Apply Bayesian weighted average
+                adjusted_value = (player_value * player_weight) + (squad_avg * (1 - player_weight))
+                setattr(player, metric_attr, adjusted_value)
 
     def _calculate_position_benchmarks(self, squad: Squad) -> Dict[str, Dict[str, float]]:
         """Calculate average metrics for each position."""
@@ -183,9 +254,12 @@ class SquadAuditService:
                 elite_filled = min(quality['elite'], required)
                 good_filled = min(quality['good'], max(0, required - elite_filled))
                 others_filled = max(0, required - elite_filled - good_filled)
-                score += (elite_filled * 3) + (good_filled * 2) + (others_filled * 1)
+                # Star Power Weighting: 10/4/1 (prioritizes formations that maximize elite players)
+                score += (elite_filled * 10) + (good_filled * 4) + (others_filled * 1)
                 position_breakdown.append({'position': pos.value, 'required': required, 'elite': quality['elite'], 'good': quality['good'], 'total_available': quality['total']})
             if can_fill:
                 scored_formations.append({'name': formation['name'], 'score': score, 'breakdown': position_breakdown})
+
+        # Sort by score (highest first) - Star Power Weighting prioritizes elite players
         scored_formations.sort(key=lambda x: x['score'], reverse=True)
         return scored_formations[:top_n]
