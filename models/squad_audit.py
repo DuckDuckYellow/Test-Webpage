@@ -111,6 +111,73 @@ class Player:
         evaluator = PlayerEvaluatorService()
         return evaluator.get_position_category(self)
 
+    def get_contract_expiry_relative(self) -> str:
+        """
+        Convert contract expiry date to relative time period.
+
+        Returns:
+            Relative time period string (<6m, <1yr, 2yrs, 3yrs, etc.)
+        """
+        from datetime import datetime
+
+        if not self.expires or self.expires == "-":
+            return "N/A"
+
+        try:
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
+            today = datetime.now()
+
+            # Calculate months remaining
+            months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
+
+            # Calculate years for display
+            years_remaining = months_remaining // 12
+
+            if months_remaining < 6:
+                return "<6m"
+            elif months_remaining < 12:
+                return "<1yr"
+            elif years_remaining == 1:
+                return "1yr"
+            elif years_remaining == 2:
+                return "2yrs"
+            elif years_remaining == 3:
+                return "3yrs"
+            elif years_remaining == 4:
+                return "4yrs"
+            else:
+                return f"{years_remaining}yrs"
+        except:
+            return "N/A"
+
+    def get_contract_expiry_color(self) -> str:
+        """
+        Get Bootstrap color class for contract expiry badge.
+
+        Returns:
+            Bootstrap color class (danger, warning, info, success)
+        """
+        from datetime import datetime
+
+        if not self.expires or self.expires == "-":
+            return "secondary"
+
+        try:
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
+            today = datetime.now()
+            months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
+
+            if months_remaining < 6:
+                return "danger"
+            elif months_remaining < 12:
+                return "warning"
+            elif months_remaining <= 24:
+                return "info"
+            else:
+                return "success"
+        except:
+            return "secondary"
+
 @dataclass
 class Squad:
     """Represents a collection of players."""
