@@ -228,7 +228,7 @@
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
                                     <th class="text-end">Wage</th>
-                                    <th class="text-center">Contract</th>
+                                    <th class="text-center">Contract Expiry</th>
                                     <th>Stats</th>
                                     <th>Action</th>
                                 </tr>
@@ -245,37 +245,52 @@
                                     </td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end" data-value="{{ analysis.value_score }}">
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary fs-6">N/A</span>
+                                        {% else %}
                                         <span class="badge bg-{{ analysis.get_value_score_color() }} fs-6">
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-center">
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% else %}
                                         <span class="badge bg-{{ analysis.get_verdict_color() }}">
                                             {{ analysis.player.best_role.tier }}
                                         </span>
+                                        {% endif %}
                                     </td>
 
                                     <!-- Best Role -->
                                     <td>
                                         {% if analysis.player.mins is none or analysis.player.mins >= 500 %}
                                         {% set role = analysis.player.best_role %}
-                                        <div class="role-badge role-{{ role.tier|lower }}"
+                                        {% if role.tier == 'ELITE' %}
+                                            {% set role_color = 'success' %}
+                                        {% elif role.tier == 'GOOD' %}
+                                            {% set role_color = 'info' %}
+                                        {% elif role.tier == 'AVERAGE' %}
+                                            {% set role_color = 'warning' %}
+                                        {% else %}
+                                            {% set role_color = 'danger' %}
+                                        {% endif %}
+                                        <span class="badge bg-{{ role_color }}"
                                             data-player-name="{{ analysis.player.name }}"
                                             onclick="openRoleModal(this.dataset.playerName)" style="cursor: pointer;">
                                             {{ role.display_name|trim }}
-                                        </div>
+                                        </span>
                                         {% else %}
                                         <span class="text-muted small" data-bs-toggle="tooltip"
                                             title="Less than 500 minutes played">Low Sample</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
-                                    <td
-                                        class="text-center small {% if analysis.contract_warning %}text-danger fw-bold{% endif %}">
-                                        {{ analysis.player.expires }}
-                                        {% if analysis.contract_warning %}
-                                        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
-                                        {% endif %}
+                                    <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-{{ analysis.player.get_contract_expiry_color() }}">
+                                            {{ analysis.player.get_contract_expiry_relative() }}
+                                        </span>
                                     </td>
                                     <td class="small">
                                         {% if analysis.top_metrics %}
@@ -420,15 +435,22 @@
                                             analysis.player.get_position_category().value }}</span></td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end">
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% else %}
                                         <span class="badge bg-{{ analysis.get_value_score_color() }}">
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end">
-                                        <span class="badge bg-danger">{{ "%.1f"|format(analysis.performance_index)
-                                            }}</span>
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">{{ "%.1f"|format(analysis.performance_index) }}</span>
+                                        {% endif %}
                                     </td>
-                                    <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
+                                    <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
                                     <td class="small">
                                         {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
                                         {% if rec_parts|length == 2 %}
@@ -495,16 +517,24 @@
                                             analysis.player.get_position_category().value }}</span></td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
                                     <td class="text-end">
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% else %}
                                         <span class="badge bg-{{ analysis.get_value_score_color() }}">
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end">
+                                        {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                        {% else %}
                                         <span class="badge bg-{{ analysis.get_verdict_color() }}">
                                             {{ analysis.verdict.value }}
                                         </span>
+                                        {% endif %}
                                     </td>
-                                    <td class="text-end small">{{ analysis.player.get_wage_formatted() }}</td>
+                                    <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
                                     <td class="small">
                                         {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
                                         {% if rec_parts|length == 2 %}

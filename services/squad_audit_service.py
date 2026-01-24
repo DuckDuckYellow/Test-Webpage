@@ -56,9 +56,16 @@ class SquadAuditService:
         """
         mins = player.mins if player.mins is not None else 0
 
+        # Store all possible positions for filtering (always set this)
+        player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
+
         # HARD FLOOR: < 200 minutes
         if mins < 200:
             # Bypass performance calculation entirely
+            # Still need to evaluate roles to set best_role for display
+            if not player.best_role:
+                self.player_evaluator.evaluate_roles(player)
+
             return PlayerAnalysis(
                 player=player,
                 performance_index=0.0,  # Not calculated
@@ -72,9 +79,6 @@ class SquadAuditService:
         # SOFT FLOOR: 200-500 minutes - Apply Bayesian Average
         if 200 <= mins < 500:
             self._apply_bayesian_average(player, benchmarks, mins)
-
-        # Store all possible positions for filtering (always set this)
-        player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
 
         # Evaluate roles (uses adjusted stats if Bayesian Average was applied)
         if not player.best_role:
@@ -169,6 +173,10 @@ class SquadAuditService:
         return performance_index / wage_index
 
     def _generate_role_recommendation(self, player: Player, value_score: float) -> str:
+        """
+        Generate contract-related recommendations only.
+        Retraining suggestions are not included in this column.
+        """
         if player.mins is not None and player.mins < 500:
             return "USE OR SELL - Insufficient data to judge (Sub 500 mins)"
 
@@ -179,9 +187,7 @@ class SquadAuditService:
             else:
                 return "CONSIDER SALE - Poor value for wage cost"
 
-        if player.recommended_role:
-             return f"{player.recommended_role.role} - {player.role_change_reason}"
-
+        # Contract-related recommendations based on performance tier
         role = player.best_role
         status = player.get_status_flag()
 
