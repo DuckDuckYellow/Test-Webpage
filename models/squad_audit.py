@@ -178,6 +178,26 @@ class Player:
         except:
             return "secondary"
 
+    def get_contract_months_remaining(self) -> int:
+        """
+        Get months remaining on contract for sorting purposes.
+
+        Returns:
+            Months remaining (999 for N/A contracts to sort them to the end)
+        """
+        from datetime import datetime
+
+        if not self.expires or self.expires == "-":
+            return 999
+
+        try:
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
+            today = datetime.now()
+            months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
+            return months_remaining
+        except:
+            return 999
+
 @dataclass
 class Squad:
     """Represents a collection of players."""
