@@ -2,7 +2,7 @@
 Squad Audit Analysis Service - Refactored.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 from models.squad_audit import (
     Player,
@@ -13,6 +13,7 @@ from models.squad_audit import (
     PerformanceVerdict
 )
 from models.constants import PositionCategory, POSITION_METRICS, METRIC_NAMES
+from models.league_baseline import LeagueWageBaseline, LeagueBaselineCollection
 from services.player_evaluator_service import PlayerEvaluatorService
 
 class SquadAuditService:
@@ -21,14 +22,25 @@ class SquadAuditService:
     def __init__(self):
         self.player_evaluator = PlayerEvaluatorService()
 
-    def analyze_squad(self, squad: Squad) -> SquadAnalysisResult:
-        """Perform complete squad analysis."""
+    def analyze_squad(
+        self,
+        squad: Squad,
+        selected_division: Optional[str] = None,
+        league_baselines: Optional[LeagueBaselineCollection] = None
+    ) -> SquadAnalysisResult:
+        """Perform complete squad analysis with optional league comparison."""
         benchmarks = self._calculate_position_benchmarks(squad)
         squad_avg_wage = squad.get_average_wage()
 
         player_analyses = []
         for player in squad.players:
-            analysis = self._analyze_player(player, benchmarks, squad_avg_wage)
+            analysis = self._analyze_player(
+                player,
+                benchmarks,
+                squad_avg_wage,
+                selected_division=selected_division,
+                league_baselines=league_baselines
+            )
             player_analyses.append(analysis)
 
         return SquadAnalysisResult(
@@ -36,7 +48,8 @@ class SquadAuditService:
             player_analyses=player_analyses,
             position_benchmarks=benchmarks,
             squad_avg_wage=squad_avg_wage,
-            total_players=len(squad.players)
+            total_players=len(squad.players),
+            selected_division=selected_division
         )
 
     def _analyze_player(
@@ -44,7 +57,9 @@ class SquadAuditService:
         player: Player,
         benchmarks: Dict[str, Dict[str, float]],
         squad_avg_wage: float,
-        position_override: Optional[PositionCategory] = None
+        position_override: Optional[PositionCategory] = None,
+        selected_division: Optional[str] = None,
+        league_baselines: Optional[LeagueBaselineCollection] = None
     ) -> PlayerAnalysis:
         """
         Analyze a single player with minutes-based reliability thresholds.
@@ -66,10 +81,14 @@ class SquadAuditService:
             if not player.best_role:
                 self.player_evaluator.evaluate_roles(player)
 
+            # No league value calculation for <200 mins players
             return PlayerAnalysis(
                 player=player,
                 performance_index=0.0,  # Not calculated
                 value_score=0.0,        # Not calculated
+                league_value_score=None,
+                league_baseline=None,
+                league_wage_percentile=None
                 verdict=PerformanceVerdict.POOR,  # Default tier
                 recommendation="INSUFFICIENT DATA - Less than 200 minutes played",
                 top_metrics=["N/A - Insufficient Data"],
@@ -88,6 +107,16 @@ class SquadAuditService:
         value_score = self._calculate_value_score(performance_index, player.wage, squad_avg_wage)
         verdict = PerformanceVerdict(player.best_role.tier)
 
+        # Calculate league value score (if division selected)
+        player_position = self.player_evaluator.get_position_category(player, position_override)
+        league_value_score, league_baseline, league_percentile = self._calculate_league_value_score(
+            performance_index,
+            player.wage,
+            player_position,
+            selected_division,
+            league_baselines
+        )
+
         # Add "Projected" prefix for Soft Floor players
         if 200 <= mins < 500:
             recommendation = f"PROJECTED - {self._generate_role_recommendation(player, value_score)}"
@@ -105,7 +134,10 @@ class SquadAuditService:
             verdict=verdict,
             recommendation=recommendation,
             top_metrics=top_metrics,
-            contract_warning=contract_warning
+            contract_warning=contract_warning,
+            league_value_score=league_value_score,
+            league_baseline=league_baseline,
+            league_wage_percentile=league_percentile
         )
 
     def _apply_bayesian_average(self, player: Player, benchmarks: Dict[str, Dict[str, float]], mins: int):
@@ -171,6 +203,58 @@ class SquadAuditService:
             return 100.0
         wage_index = max(0.1, player_wage / squad_avg_wage)
         return performance_index / wage_index
+
+    def _calculate_league_value_score(
+        self,
+        performance_index: float,
+        player_wage: float,
+        player_position: PositionCategory,
+        selected_division: Optional[str],
+        league_baselines: Optional[LeagueBaselineCollection]
+    ) -> Tuple[Optional[float], Optional[LeagueWageBaseline], Optional[float]]:
+        """
+        Calculate league-based value score with GK multiplier fallback.
+
+        Formula:
+            league_wage_index = player_wage / league_avg_wage
+            league_value_score = performance_index / league_wage_index
+
+        GK Fallback:
+            If no GK baseline exists for division:
+            - Get avg outfield wage for division
+            - Estimate GK wage = avg_outfield_wage × gk_wage_multiplier
+            - Use estimated wage for comparison
+
+        Returns:
+            (league_value_score, baseline_used, wage_percentile)
+        """
+        if not league_baselines or not selected_division:
+            return None, None, None
+
+        # Try to get baseline with aggregation fallback
+        baseline = league_baselines.get_baseline_with_aggregation(selected_division, player_position)
+
+        # GK FALLBACK: If still no baseline (GK case), estimate using multiplier
+        if not baseline and player_position == PositionCategory.GK:
+            baseline = league_baselines.get_baseline_with_gk_estimation(selected_division, player_position)
+
+        if not baseline or baseline.average_wage == 0.0 or player_wage == 0.0:
+            return None, baseline, None
+
+        league_wage_index = max(0.1, player_wage / baseline.average_wage)
+        league_value_score = performance_index / league_wage_index
+
+        # Calculate percentile (approximate using quartiles)
+        if player_wage <= baseline.percentile_25:
+            percentile = 25.0
+        elif player_wage <= baseline.median_wage:
+            percentile = 50.0
+        elif player_wage <= baseline.percentile_75:
+            percentile = 75.0
+        else:
+            percentile = 95.0
+
+        return league_value_score, baseline, percentile
 
     def _generate_role_recommendation(self, player: Player, value_score: float) -> str:
         """
@@ -270,6 +354,9 @@ class SquadAuditService:
                 "Position": self.player_evaluator.get_position_category(analysis.player).value,
                 "Age": str(analysis.player.age),
                 "Value Score": f"{analysis.value_score:.1f}",
+                "League Value Score": f"{analysis.league_value_score:.1f}" if analysis.league_value_score else "N/A",
+                "League Wage Percentile": f"{analysis.league_wage_percentile:.0f}th" if analysis.league_wage_percentile else "N/A",
+                "Value Insight": analysis.get_value_comparison_indicator() or "",
                 "Performance": analysis.verdict.value,
                 "Status": analysis.player.inf or "-",
                 "Recommendation": analysis.recommendation,
