@@ -27,12 +27,43 @@ PROJECTS = []
 blog_service = None
 capacity_service = None
 file_service = None
+league_baselines = None
 
 
 def format_date(date_string):
     """Format date string for Jinja templates."""
     date_obj = datetime.strptime(date_string, "%Y-%m-%d")
     return date_obj.strftime("%B %d, %Y")
+
+
+def initialize_league_baselines(app):
+    """
+    Load league wage baselines from JSON file on startup.
+
+    If the baseline file exists, loads it into the global league_baselines variable.
+    If missing, logs a warning but continues (feature will be disabled).
+    """
+    global league_baselines
+    baseline_path = os.path.join(os.path.dirname(__file__), 'data', 'league_baselines.json')
+
+    if os.path.exists(baseline_path):
+        try:
+            from services.league_baseline_generator import LeagueBaselineGenerator
+            generator = LeagueBaselineGenerator()
+            league_baselines = generator.load_from_json(baseline_path)
+            app.logger.info(
+                f"Loaded {len(league_baselines.baselines)} league baselines from "
+                f"{len(league_baselines.get_available_divisions())} divisions "
+                f"(GK multiplier: {league_baselines.gk_wage_multiplier:.3f})"
+            )
+        except Exception as e:
+            app.logger.error(f"Failed to load league baselines: {e}")
+            league_baselines = None
+    else:
+        app.logger.warning(
+            f"League baseline data not found at {baseline_path} - "
+            "league value comparisons will not be available"
+        )
 
 
 def create_app(config_class=None):
@@ -64,7 +95,7 @@ def create_app(config_class=None):
     setup_logger(app)
 
     # Initialize global services
-    global blog_service, capacity_service, file_service
+    global blog_service, capacity_service, file_service, league_baselines
     blog_service = BlogService(app.config['ARTICLES_DIR'])
     capacity_service = CapacityService()
     file_service = FileService(
@@ -73,6 +104,9 @@ def create_app(config_class=None):
     )
 
     app.logger.info("Services initialized successfully")
+
+    # Initialize league baselines
+    initialize_league_baselines(app)
 
     # Initialize global data structures
     initialize_blog_categories()

@@ -96,6 +96,46 @@
                                 (.html)</div>
                         </div>
 
+                        <div class="mb-4">
+                            <label for="division" class="form-label fw-semibold">
+                                Select Division for League Comparison
+                                <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                   title="Compare player wages against league averages for this division"></i>
+                            </label>
+                            <select class="form-select" id="division" name="division">
+                                <option value="">No league comparison</option>
+                                {% if available_divisions %}
+                                    {% for div in available_divisions %}
+                                    <option value="{{ div }}">
+                                        {{ div }}
+                                        {% if league_baselines and league_baselines.is_low_sample_size(div) %}
+                                            ⚠️ (Low sample)
+                                        {% endif %}
+                                    </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                            <div class="form-text">Optional - enables league-based value scoring</div>
+                            {% if league_baselines %}
+                            <div id="division-sample-warning" class="alert alert-warning mt-2" style="display: none;">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Low Sample Size:</strong> This division has fewer than 100 players in the dataset.
+                                League averages may not be representative.
+                            </div>
+                            <script>
+                                document.getElementById('division').addEventListener('change', function() {
+                                    const warning = document.getElementById('division-sample-warning');
+                                    const selectedDiv = this.options[this.selectedIndex].text;
+                                    if (selectedDiv.includes('⚠️')) {
+                                        warning.style.display = 'block';
+                                    } else {
+                                        warning.style.display = 'none';
+                                    }
+                                });
+                            </script>
+                            {% endif %}
+                        </div>
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="bi bi-upload"></i> Analyze Squad
@@ -162,6 +202,36 @@
                             </div>
                         </div>
                     </div>
+                    {% if analysis_result.selected_division %}
+                    <div class="row mt-3">
+                        <div class="col-12 text-center">
+                            <div class="p-2">
+                                <h5 class="text-info mb-0">
+                                    {{ analysis_result.selected_division }}
+                                    {% if league_baselines and league_baselines.is_low_sample_size(analysis_result.selected_division) %}
+                                        <span class="badge bg-warning small">⚠️ Low Sample</span>
+                                    {% endif %}
+                                </h5>
+                                <small class="text-muted">
+                                    League Comparison
+                                    {% if league_baselines %}
+                                        ({{ league_baselines.get_division_player_count(analysis_result.selected_division) }} players in dataset)
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% if league_baselines and league_baselines.is_low_sample_size(analysis_result.selected_division) %}
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <strong>Low Sample Size:</strong> This division has fewer than 100 players in the baseline dataset. League averages may not be fully representative.
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
 
                 <!-- Filters and Search -->
@@ -220,6 +290,14 @@
                                             title="Value Score = (Role Score / Wage Index) × 100"></i>
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
+                                    <th class="sortable text-end" data-sort="league-value" style="cursor: pointer;">
+                                        League Value
+                                        {% if analysis_result.selected_division %}
+                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
+                                            title="Value vs League Avg Wage ({{ analysis_result.selected_division }})"></i>
+                                        {% endif %}
+                                        <i class="bi bi-arrow-down-up"></i>
+                                    </th>
                                     <th class="sortable text-center" data-sort="verdict" style="cursor: pointer;">
                                         Perf <i class="bi bi-arrow-down-up"></i>
                                     </th>
@@ -254,6 +332,29 @@
                                         <span class="badge bg-{{ analysis.get_value_score_color() }} fs-6">
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end" data-value="{{ analysis.league_value_score or 0 }}">
+                                        {% if analysis.league_value_score is not none %}
+                                            <span class="badge bg-{{ analysis.get_league_value_score_color() }} fs-6">
+                                                {{ "%.1f"|format(analysis.league_value_score) }}
+                                            </span>
+                                            {% if analysis.league_baseline and analysis.league_baseline.player_count == 0 %}
+                                                <span class="badge bg-secondary small">Estimated</span>
+                                            {% endif %}
+                                            {% set comparison = analysis.get_value_comparison_indicator() %}
+                                            {% if comparison %}
+                                                <br><span class="badge bg-{{ 'primary' if comparison == 'League Bargain' else 'warning' }} small mt-1"
+                                                          data-bs-toggle="tooltip"
+                                                          title="{% if comparison == 'League Bargain' %}Underpaid vs league avg (great market value!){% else %}Lower league value due to high squad wages (squad context matters){% endif %}">
+                                                    {{ comparison }}
+                                                </span>
+                                            {% endif %}
+                                            <div class="small text-muted">
+                                                {{ "%.0f"|format(analysis.league_wage_percentile) }}th percentile
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted small">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">

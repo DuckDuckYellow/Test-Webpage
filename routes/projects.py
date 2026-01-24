@@ -74,18 +74,30 @@ def capacity_tracker():
 @projects_bp.route("/squad-audit-tracker", methods=["GET", "POST"])
 def squad_audit_tracker():
     """Squad Audit Tracker tool - uses Manager."""
+    from app import league_baselines
+
     analysis_result = None
     errors = []
+    available_divisions = []
+
+    if league_baselines:
+        available_divisions = league_baselines.get_available_divisions()
 
     if request.method == "POST":
         file = request.files.get('html_file')
+        selected_division = request.form.get('division', '').strip() or None
+
         if not file or file.filename == '':
             errors.append("No file uploaded")
         elif not file.filename.endswith('.html'):
             errors.append("Please upload an HTML file")
         else:
             html_content = file.read().decode('utf-8')
-            analysis_result, analysis_errors = squad_manager.process_squad_upload(html_content)
+            analysis_result, analysis_errors = squad_manager.process_squad_upload(
+                html_content,
+                selected_division=selected_division,
+                league_baselines=league_baselines
+            )
             errors.extend(analysis_errors)
 
     if not analysis_result and 'squad_analysis_id' in session:
@@ -99,7 +111,9 @@ def squad_audit_tracker():
         "projects/squad_audit_tracker.html",
         analysis_result=analysis_result,
         errors=errors,
-        formation_suggestions=formation_suggestions
+        formation_suggestions=formation_suggestions,
+        available_divisions=available_divisions,
+        league_baselines=league_baselines
     )
 
 @projects_bp.route("/squad-audit-tracker/new")

@@ -111,13 +111,13 @@ class LeagueBaselineGenerator:
         if pos == "DM" or "DM (" in pos:
             return PositionCategory.DM
 
+        # Attacking Midfielders (check before CM to avoid false matches)
+        if "AM" in pos:
+            return PositionCategory.AM
+
         # Central Midfielders
         if "M (C)" in pos or pos == "MC" or any(x in pos for x in ["M (R)", "M (L)"]):
             return PositionCategory.CM
-
-        # Attacking Midfielders
-        if "AM" in pos:
-            return PositionCategory.AM
 
         # Wingers
         if pos == "W" or "W (" in pos or pos in ["AML", "AMR"]:

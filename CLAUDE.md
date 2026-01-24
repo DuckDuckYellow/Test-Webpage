@@ -123,13 +123,15 @@ Test-Webpage/
 │   ├── file_service.py        # File upload handling
 │   ├── fm_parser.py           # Football Manager HTML parser (legacy)
 │   ├── fm_parser_v2.py        # Football Manager HTML parser (new format)
-│   └── parser_factory.py      # Detects FM format & returns parser
+│   ├── parser_factory.py      # Detects FM format & returns parser
+│   └── league_baseline_generator.py # Parses wage exports & generates baselines
 │
 ├── models/                     # Data structures (Pydantic/dataclasses)
 │   ├── article.py             # Article, BlogCategory
 │   ├── squad_audit.py         # Player, Squad, PlayerAnalysis, SquadAnalysisResult
 │   ├── vacancy.py             # Vacancy, Recruiter, TeamSummary
 │   ├── role_definitions.py    # RoleDefinition, role requirements
+│   ├── league_baseline.py     # LeagueWageBaseline, LeagueBaselineCollection
 │   └── constants.py           # PositionCategory, metrics mappings
 │
 ├── schemas/                    # Input validation (Pydantic)
@@ -151,6 +153,12 @@ Test-Webpage/
 │
 ├── articles/                   # Article content (.txt files)
 ├── static/                     # Static assets (CSS, JS, images)
+├── data/                       # Pre-computed data files
+│   └── league_baselines.json  # League wage baselines (455 baselines, 134 divisions)
+│
+├── scripts/                    # CLI tools and utilities
+│   └── generate_league_baselines.py  # Generate league baselines from wage export
+│
 ├── tests/                      # Test suite
 │   ├── conftest.py            # Shared pytest fixtures
 │   ├── unit/                  # Unit tests (services, models)
@@ -178,6 +186,7 @@ Test-Webpage/
 | **ParserFactory** | `parser_factory.py` | Detects FM HTML format | `get_parser()` (returns V1 or V2 parser) |
 | **FMHTMLParser** | `fm_parser.py` | Parses FM HTML (legacy format) | `parse_html()` |
 | **FMHTMLParserV2** | `fm_parser_v2.py` | Parses FM HTML (new format) | `parse_html()` |
+| **LeagueBaselineGenerator** | `league_baseline_generator.py` | Parses wage exports & generates baselines | `parse_wage_export_html()`, `generate_baselines()`, `calculate_gk_multiplier()` |
 
 ### Service Design Principles
 
@@ -199,6 +208,57 @@ class CapacityService:
         stage_multiplier = cls._get_stage_multiplier(vacancy.stage)
         return base_capacity * internal_multiplier * stage_multiplier
 ```
+
+### League Baseline System
+
+**Purpose:** Compare player wages against league-wide averages for their position/division.
+
+**Data Source:** `wage_player_export.html` (61-column FM wage export with Division + Wage data)
+
+**Storage:** `data/league_baselines.json` (pre-computed statistics)
+
+**Key Features:**
+- **Dual Value Scoring:** Players receive both squad-based and league-based value scores
+- **GK Multiplier:** Auto-calculated from top 5 European leagues (Premier League, La Liga, Serie A, Bundesliga, Ligue 1)
+- **Position Aggregation:** Positions with <30 players aggregate into broader groups (Defenders/Midfielders/Attackers)
+- **Low Sample Warnings:** Divisions with <100 total players flagged with warnings
+- **Value Comparison Indicator:** "League Bargain" badge for players with league value 30+ higher than squad value
+
+**Data Flow:**
+```
+1. wage_player_export.html (FM export)
+   ↓
+2. scripts/generate_league_baselines.py (CLI tool)
+   ↓
+3. LeagueBaselineGenerator.parse_wage_export_html()
+   ↓
+4. LeagueBaselineGenerator.generate_baselines()
+   ↓
+5. data/league_baselines.json (455 baselines, 134 divisions, GK multiplier: 0.677)
+   ↓
+6. App startup → initialize_league_baselines() loads JSON
+   ↓
+7. User selects division during squad upload
+   ↓
+8. SquadAuditService calculates league_value_score for each player
+   ↓
+9. Template displays both squad and league values side-by-side
+```
+
+**Regenerating Baselines:**
+```bash
+python scripts/generate_league_baselines.py wage_player_export.html
+```
+
+**Lookup Logic (Cascade):**
+1. Try specific position (e.g., FB)
+2. If not found or <30 players → try aggregated group (e.g., Defenders)
+3. If GK and no baseline → estimate using `avg_outfield_wage × gk_multiplier`
+4. Return None if no match
+
+**Key Models:**
+- `LeagueWageBaseline` - Single baseline (division + position + wage stats)
+- `LeagueBaselineCollection` - Collection with O(1) lookup cache
 
 ---
 
@@ -240,6 +300,8 @@ class Player:
 | `SquadAnalysisResult` | Complete squad analysis | `models/squad_audit.py` |
 | `Vacancy` | Recruitment position | `models/vacancy.py` |
 | `Recruiter` | Recruiter with vacancies | `models/vacancy.py` |
+| `LeagueWageBaseline` | League wage baseline for division/position | `models/league_baseline.py` |
+| `LeagueBaselineCollection` | Collection of baselines with lookup cache | `models/league_baseline.py` |
 
 ### Validation Schemas (`/schemas/`)
 

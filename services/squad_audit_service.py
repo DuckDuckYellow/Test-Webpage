@@ -88,7 +88,7 @@ class SquadAuditService:
                 value_score=0.0,        # Not calculated
                 league_value_score=None,
                 league_baseline=None,
-                league_wage_percentile=None
+                league_wage_percentile=None,
                 verdict=PerformanceVerdict.POOR,  # Default tier
                 recommendation="INSUFFICIENT DATA - Less than 200 minutes played",
                 top_metrics=["N/A - Insufficient Data"],
@@ -108,7 +108,7 @@ class SquadAuditService:
         verdict = PerformanceVerdict(player.best_role.tier)
 
         # Calculate league value score (if division selected)
-        player_position = self.player_evaluator.get_position_category(player, position_override)
+        player_position = position_override if position_override else self.player_evaluator.get_position_category(player)
         league_value_score, league_baseline, league_percentile = self._calculate_league_value_score(
             performance_index,
             player.wage,
