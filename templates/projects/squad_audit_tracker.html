@@ -228,7 +228,9 @@
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
                                     <th class="text-end">Wage</th>
-                                    <th class="text-center">Contract Expiry</th>
+                                    <th class="sortable text-center" data-sort="contract" style="cursor: pointer;">
+                                        Contract Expiry <i class="bi bi-arrow-down-up"></i>
+                                    </th>
                                     <th>Stats</th>
                                     <th>Action</th>
                                 </tr>
@@ -238,7 +240,8 @@
                                 <tr class="player-row" data-name="{{ analysis.player.name|lower }}"
                                     data-position="{{ analysis.player.get_position_category().value }}"
                                     data-all-positions="{% for pos in analysis.player.all_possible_positions %}{{ pos.value }}{% if not loop.last %},{% endif %}{% endfor %}"
-                                    data-verdict="{{ analysis.player.best_role.tier }}">
+                                    data-verdict="{{ analysis.player.best_role.tier }}"
+                                    data-insufficient-data="{% if analysis.player.mins is not none and analysis.player.mins < 200 %}true{% else %}false{% endif %}">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
                                         <span class="badge bg-secondary">{{ analysis.player.position }}</span>
@@ -267,27 +270,18 @@
                                     <td>
                                         {% if analysis.player.mins is none or analysis.player.mins >= 500 %}
                                         {% set role = analysis.player.best_role %}
-                                        {% if role.tier == 'ELITE' %}
-                                            {% set role_color = 'success' %}
-                                        {% elif role.tier == 'GOOD' %}
-                                            {% set role_color = 'info' %}
-                                        {% elif role.tier == 'AVERAGE' %}
-                                            {% set role_color = 'warning' %}
-                                        {% else %}
-                                            {% set role_color = 'danger' %}
-                                        {% endif %}
-                                        <span class="badge bg-{{ role_color }}"
+                                        <span class="badge bg-primary"
                                             data-player-name="{{ analysis.player.name }}"
                                             onclick="openRoleModal(this.dataset.playerName)" style="cursor: pointer;">
                                             {{ role.display_name|trim }}
                                         </span>
                                         {% else %}
-                                        <span class="text-muted small" data-bs-toggle="tooltip"
+                                        <span class="badge bg-primary" data-bs-toggle="tooltip"
                                             title="Less than 500 minutes played">Low Sample</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
-                                    <td class="text-center">
+                                    <td class="text-center" data-contract="{{ analysis.player.get_contract_months_remaining() }}">
                                         <span class="badge bg-{{ analysis.player.get_contract_expiry_color() }}">
                                             {{ analysis.player.get_contract_expiry_relative() }}
                                         </span>
@@ -766,6 +760,14 @@
             };
 
             const sortedRows = rows.sort((a, b) => {
+                // Always put players with insufficient data at the bottom
+                const aInsufficient = a.dataset.insufficientData === 'true';
+                const bInsufficient = b.dataset.insufficientData === 'true';
+
+                if (aInsufficient && !bInsufficient) return 1;
+                if (!aInsufficient && bInsufficient) return -1;
+
+                // Both have insufficient data or both have sufficient data - sort normally
                 let aVal, bVal;
 
                 if (column === 'name') {
@@ -788,6 +790,10 @@
                     // Extract role name from the badge text (cleaning whitespace)
                     aVal = a.children[5].textContent.trim();
                     bVal = b.children[5].textContent.trim();
+                } else if (column === 'contract') {
+                    // Sort by months remaining (lower = expires sooner)
+                    aVal = parseInt(a.children[7].dataset.contract);
+                    bVal = parseInt(b.children[7].dataset.contract);
                 }
 
                 if (direction === 'asc') {
@@ -809,7 +815,8 @@
                 age: 'Age',
                 value: 'Value Score',
                 verdict: 'Performance',
-                role: 'Best Role'
+                role: 'Best Role',
+                contract: 'Contract Expiry'
             };
             const direction = currentSort.direction === 'asc' ? 'Ascending' : 'Descending';
             currentSortLabel.textContent = `${labels[currentSort.column]} (${direction})`;
