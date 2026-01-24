@@ -87,7 +87,12 @@ Advanced tool for analyzing Football Manager squads:
 - **Per-90 Metrics**: Normalized performance analysis across 8 position groups.
 - **Role Evaluation**: Automatically evaluates players against 12 tactical roles (e.g., Ball Playing Defender, Mezzala).
 - **Role Recommendations**: Suggests optimal role changes based on player attributes and performance.
-- **Value Scoring**: Identifies undervalued and overvalued players based on wage vs performance.
+- **Dual Value Scoring**:
+  - **Squad-Based Value**: Performance relative to squad average wage
+  - **League-Based Value**: Performance relative to league average wage (optional, 134 divisions)
+- **Division Selection**: Compare wages against 50+ global divisions
+- **Value Insights**: "League Bargain" indicator for players underpaid vs market value
+- **League Percentiles**: See where players rank in league wage distribution
 
 ### Recruitment Capacity Tracker
 Resource planning tool for recruitment teams:

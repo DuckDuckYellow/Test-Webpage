@@ -213,11 +213,15 @@ class PlayerAnalysis:
     """Analysis results for a single player."""
     player: Player
     performance_index: float
-    value_score: float
+    value_score: float  # Squad-based value score
     verdict: PerformanceVerdict
     recommendation: str
     top_metrics: List[str] = field(default_factory=list)
     contract_warning: bool = False
+    # League comparison fields
+    league_value_score: Optional[float] = None
+    league_baseline: Optional['LeagueWageBaseline'] = None  # Forward reference to avoid circular import
+    league_wage_percentile: Optional[float] = None
 
     def get_value_score_color(self) -> str:
         if self.value_score >= 150: return "success"
@@ -225,6 +229,35 @@ class PlayerAnalysis:
         elif self.value_score >= 100: return "warning"
         elif self.value_score >= 80: return "dark"
         else: return "danger"
+
+    def get_league_value_score_color(self) -> str:
+        """Color coding for league value score (same tiers as squad-based)."""
+        if not self.league_value_score:
+            return "secondary"
+        if self.league_value_score >= 150: return "success"
+        elif self.league_value_score >= 120: return "info"
+        elif self.league_value_score >= 100: return "warning"
+        elif self.league_value_score >= 80: return "dark"
+        else: return "danger"
+
+    def get_value_comparison_indicator(self) -> Optional[str]:
+        """
+        Get value comparison badge text.
+
+        Returns:
+        - "League Bargain" if league_value - value_score >= 30 (underpaid vs league)
+        - "Squad Context" if value_score - league_value >= 30 (squad wage context explains lower league value)
+        - None otherwise
+        """
+        if not self.league_value_score:
+            return None
+
+        diff = self.league_value_score - self.value_score
+        if diff >= 30:
+            return "League Bargain"
+        elif diff <= -30:
+            return "Squad Context"
+        return None
 
     def get_verdict_color(self) -> str:
         if self.verdict == PerformanceVerdict.ELITE: return "success"
@@ -241,6 +274,7 @@ class SquadAnalysisResult:
     position_benchmarks: Dict[str, Dict[str, float]] = field(default_factory=dict)
     squad_avg_wage: float = 0.0
     total_players: int = 0
+    selected_division: Optional[str] = None  # Division selected for league comparison
 
     def get_elite_players(self) -> List[PlayerAnalysis]:
         return [a for a in self.player_analyses if a.verdict == PerformanceVerdict.ELITE]

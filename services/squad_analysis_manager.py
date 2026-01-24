@@ -11,6 +11,7 @@ from services.parser_factory import ParserFactory
 from services.squad_audit_service import SquadAuditService
 from services.player_evaluator_service import PlayerEvaluatorService
 from models.squad_audit import Squad, SquadAnalysisResult
+from models.league_baseline import LeagueBaselineCollection
 
 class SquadAnalysisManager:
     """Manages the end-to-end squad analysis process."""
@@ -20,33 +21,42 @@ class SquadAnalysisManager:
         self.audit_service = SquadAuditService()
         self.player_evaluator = PlayerEvaluatorService()
 
-    def process_squad_upload(self, file_content: str) -> Tuple[Optional[SquadAnalysisResult], List[str]]:
+    def process_squad_upload(
+        self,
+        file_content: str,
+        selected_division: Optional[str] = None,
+        league_baselines: Optional[LeagueBaselineCollection] = None
+    ) -> Tuple[Optional[SquadAnalysisResult], List[str]]:
         """
-        Processes a squad HTML upload.
+        Processes a squad HTML upload with optional league comparison.
         1. Detects parser
         2. Parses squad
         3. Evaluates players
-        4. Analyzes squad
+        4. Analyzes squad (with league baselines if provided)
         5. Persists to session-linked temporary storage
         """
         errors = []
         try:
             # Detect and get parser
             parser = self.parser_factory.get_parser(file_content)
-            
+
             # Parse HTML
             squad = parser.parse_html(file_content)
-            
+
             # Evaluate roles for all players
             for player in squad.players:
                 self.player_evaluator.evaluate_roles(player)
-            
-            # Analyze squad
-            analysis_result = self.audit_service.analyze_squad(squad)
-            
-            # Persist to safe temporary storage
-            self._persist_to_session(file_content)
-            
+
+            # Analyze squad with league baselines
+            analysis_result = self.audit_service.analyze_squad(
+                squad,
+                selected_division=selected_division,
+                league_baselines=league_baselines
+            )
+
+            # Persist to safe temporary storage (including division selection)
+            self._persist_to_session(file_content, selected_division)
+
             return analysis_result, errors
             
         except ValueError as ve:
@@ -59,35 +69,46 @@ class SquadAnalysisManager:
 
     def get_analysis_from_session(self) -> Optional[SquadAnalysisResult]:
         """
-        Retrieves and re-analyzes squad from session-stored HTML.
+        Retrieves and re-analyzes squad from session-stored HTML with division.
         """
         html_content = self._get_from_session()
         if not html_content:
             return None
-            
+
+        # Get stored division selection
+        selected_division = session.get('selected_division')
+
+        # Get league baselines from app context
+        from app import league_baselines
+
         # Re-parse and analyze (stateless but consistent)
         parser = self.parser_factory.get_parser(html_content)
         squad = parser.parse_html(html_content)
-        
+
         for player in squad.players:
             self.player_evaluator.evaluate_roles(player)
-            
-        return self.audit_service.analyze_squad(squad)
 
-    def _persist_to_session(self, content: str):
-        """Stores content in a UUID-named file and saves UUID in session."""
+        return self.audit_service.analyze_squad(
+            squad,
+            selected_division=selected_division,
+            league_baselines=league_baselines
+        )
+
+    def _persist_to_session(self, content: str, selected_division: Optional[str] = None):
+        """Stores content in a UUID-named file and saves UUID + division in session."""
         analysis_id = str(uuid.uuid4())
-        
+
         # Ensure temp directory exists
         temp_dir = os.path.join(tempfile.gettempdir(), 'squad_audit_uploads')
         os.makedirs(temp_dir, exist_ok=True)
-        
+
         file_path = os.path.join(temp_dir, f"{analysis_id}.html")
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
-            
+
         session['squad_analysis_id'] = analysis_id
+        session['selected_division'] = selected_division
         session.permanent = True
 
     def _get_from_session(self) -> Optional[str]:
