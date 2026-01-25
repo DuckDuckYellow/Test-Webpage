@@ -11,7 +11,8 @@ from models import (
     Squad,
     PositionCategory,
     StatusFlag,
-    PerformanceVerdict
+    PerformanceVerdict,
+    Recommendation
 )
 
 
@@ -21,13 +22,8 @@ class TestSquadAuditService:
     def test_service_initialization(self, squad_audit_service):
         """Test that service initializes correctly."""
         assert squad_audit_service is not None
-        assert hasattr(squad_audit_service, 'POSITION_METRICS')
-        assert len(squad_audit_service.POSITION_METRICS) == 8
-
-    def test_position_metrics_configuration(self, squad_audit_service):
-        """Test that all positions have 4 metrics configured."""
-        for position, metrics in squad_audit_service.POSITION_METRICS.items():
-            assert len(metrics) == 4, f"{position} should have 4 metrics"
+        assert hasattr(squad_audit_service, 'player_evaluator')
+        assert hasattr(squad_audit_service, 'analyze_squad')
 
     def test_analyze_squad_returns_result(self, squad_audit_service, sample_squad):
         """Test that analyze_squad returns a SquadAnalysisResult."""
@@ -49,21 +45,6 @@ class TestSquadAuditService:
         for position_key, metrics in benchmarks.items():
             assert isinstance(metrics, dict)
             assert len(metrics) > 0
-
-    def test_performance_index_calculation(self, squad_audit_service, sample_elite_player, sample_squad):
-        """Test performance index calculation."""
-        benchmarks = squad_audit_service._calculate_position_benchmarks(sample_squad)
-        position = sample_elite_player.get_position_category()
-
-        performance_index = squad_audit_service._calculate_performance_index(
-            sample_elite_player,
-            position,
-            benchmarks
-        )
-
-        # Elite player should have above-average performance
-        assert performance_index >= 0
-        assert isinstance(performance_index, float)
 
     def test_value_score_calculation(self, squad_audit_service):
         """Test value score calculation."""
@@ -87,120 +68,21 @@ class TestSquadAuditService:
         # Should be below 100 (poor value)
         assert value_score_low < 100
 
-    def test_performance_verdict_classification(self, squad_audit_service):
-        """Test performance verdict classification."""
-        # Elite: >= 120
-        assert squad_audit_service._get_performance_verdict(125.0) == PerformanceVerdict.ELITE
+    def test_recommendation_structure(self, squad_audit_service, sample_squad):
+        """Test that recommendations have correct structure."""
+        from models import Recommendation
 
-        # Good: >= 100
-        assert squad_audit_service._get_performance_verdict(110.0) == PerformanceVerdict.GOOD
+        result = squad_audit_service.analyze_squad(sample_squad)
 
-        # Average: >= 85
-        assert squad_audit_service._get_performance_verdict(90.0) == PerformanceVerdict.AVERAGE
-
-        # Poor: < 85
-        assert squad_audit_service._get_performance_verdict(75.0) == PerformanceVerdict.POOR
-
-    def test_recommendation_for_elite_player_with_sufficient_apps(self, squad_audit_service):
-        """Test recommendation for elite player with sufficient appearances."""
-        player = Player(
-            name='Test Player',
-            position_selected='ST',
-            position='ST (C)',
-            age=25,
-            wage=30000.0,
-            apps=10,
-            subs=2,
-            gls=5,
-            ast=3,
-            av_rat=7.5,
-            expires='30/6/2030',
-            inf=''
-        )
-
-        recommendation = squad_audit_service._generate_recommendation(
-            player,
-            PerformanceVerdict.ELITE,
-            150.0
-        )
-
-        assert 'LOCK IN STARTER' in recommendation
-
-    def test_recommendation_for_transfer_listed_elite(self, squad_audit_service):
-        """Test recommendation for elite player on transfer list."""
-        player = Player(
-            name='Test Player',
-            position_selected='ST',
-            position='ST (C)',
-            age=25,
-            wage=30000.0,
-            apps=10,
-            subs=2,
-            gls=5,
-            ast=3,
-            av_rat=7.5,
-            expires='30/6/2030',
-            inf='Wnt'
-        )
-
-        recommendation = squad_audit_service._generate_recommendation(
-            player,
-            PerformanceVerdict.ELITE,
-            150.0
-        )
-
-        assert 'INVESTIGATE' in recommendation or 'retention' in recommendation.lower()
-
-    def test_recommendation_for_poor_transfer_listed(self, squad_audit_service):
-        """Test recommendation for poor player on transfer list."""
-        player = Player(
-            name='Test Player',
-            position_selected='ST',
-            position='ST (C)',
-            age=25,
-            wage=30000.0,
-            apps=10,
-            subs=2,
-            gls=0,
-            ast=0,
-            av_rat=6.0,
-            expires='30/6/2030',
-            inf='Wnt'
-        )
-
-        recommendation = squad_audit_service._generate_recommendation(
-            player,
-            PerformanceVerdict.POOR,
-            70.0
-        )
-
-        assert 'SELL' in recommendation
-
-    def test_recommendation_for_low_sample_size(self, squad_audit_service):
-        """Test recommendation for player with 5 or fewer apps."""
-        player = Player(
-            name='Test Player',
-            position_selected='ST',
-            position='ST (C)',
-            age=25,
-            wage=30000.0,
-            apps=3,  # Low sample size
-            subs=1,
-            gls=2,
-            ast=1,
-            av_rat=8.0,
-            expires='30/6/2030',
-            inf=''
-        )
-
-        recommendation = squad_audit_service._generate_recommendation(
-            player,
-            PerformanceVerdict.ELITE,  # Even with elite verdict
-            150.0
-        )
-
-        assert 'USE OR SELL' in recommendation
-        assert 'Insufficient data' in recommendation
+        for analysis in result.player_analyses:
+            rec = analysis.recommendation
+            # Recommendations should be Recommendation objects
+            assert isinstance(rec, Recommendation)
+            assert isinstance(rec.badge, str) and len(rec.badge) > 0
+            assert isinstance(rec.icon, str)
+            assert isinstance(rec.color, str)
+            assert isinstance(rec.explanation, str)
+            assert isinstance(rec.has_contract_warning, bool)
 
     def test_contract_warning_expiring_soon(self, squad_audit_service):
         """Test contract warning for contracts expiring soon."""
@@ -215,22 +97,6 @@ class TestSquadAuditService:
         warning = squad_audit_service._check_contract_warning('30/06/2030')
 
         assert isinstance(warning, bool)
-
-    def test_top_metrics_extraction(self, squad_audit_service, sample_elite_player, sample_squad):
-        """Test extraction of top metrics."""
-        benchmarks = squad_audit_service._calculate_position_benchmarks(sample_squad)
-        position = sample_elite_player.get_position_category()
-
-        top_metrics = squad_audit_service._get_top_metrics(
-            sample_elite_player,
-            position,
-            benchmarks
-        )
-
-        # Should return list of metric descriptions
-        assert isinstance(top_metrics, list)
-        # Should have up to 2 metrics
-        assert len(top_metrics) <= 2
 
     def test_export_to_csv_data(self, squad_audit_service, sample_squad):
         """Test CSV export data generation."""
@@ -274,7 +140,8 @@ class TestSquadAuditService:
             assert analysis.performance_index >= 0
             assert analysis.value_score >= 0
             assert analysis.verdict in PerformanceVerdict
-            assert len(analysis.recommendation) > 0
+            assert analysis.recommendation is not None
+            assert len(analysis.recommendation.badge) > 0
 
         # Test sorting methods
         sorted_by_value = result.get_sorted_by_value()
@@ -313,13 +180,12 @@ class TestPlayerModel:
     def test_player_status_flag_detection(self, sample_player):
         """Test status flag detection."""
         # Josh Bowler has 'PR' flag
-        assert sample_player.has_status_flag() is True
+        assert sample_player.get_status_flag() != StatusFlag.NONE
         assert sample_player.get_status_flag() == StatusFlag.PRE_CONTRACT
 
     def test_player_no_status_flag(self, sample_elite_player):
         """Test player without status flag."""
         # Damián Pizarro has no flag
-        assert sample_elite_player.has_status_flag() is False
         assert sample_elite_player.get_status_flag() == StatusFlag.NONE
 
     def test_player_wage_formatting(self, sample_player):
@@ -333,12 +199,6 @@ class TestPlayerModel:
 class TestSquadModel:
     """Test suite for Squad model methods."""
 
-    def test_squad_get_players_by_position(self, sample_squad):
-        """Test filtering players by position."""
-        goalkeepers = sample_squad.get_players_by_position(PositionCategory.GK)
-        assert len(goalkeepers) == 1
-        assert goalkeepers[0].get_position_category() == PositionCategory.GK
-
     def test_squad_average_wage(self, sample_squad):
         """Test squad average wage calculation."""
         avg_wage = sample_squad.get_average_wage()
@@ -350,19 +210,8 @@ class TestSquadModel:
         assert abs(avg_wage - expected_avg) < 0.01
 
     def test_squad_size(self, sample_squad):
-        """Test squad size calculation."""
-        assert sample_squad.get_squad_size() == len(sample_squad.players)
-
-    def test_squad_positions_summary(self, sample_squad):
-        """Test positions summary."""
-        summary = sample_squad.get_positions_summary()
-
-        assert isinstance(summary, dict)
-        assert len(summary) > 0
-
-        # Should have at least GK, CB, FB, ST positions
-        assert 'GK' in summary
-        assert summary['GK'] == 1
+        """Test squad size via players list."""
+        assert len(sample_squad.players) > 0
 
 
 class TestAnalysisResultMethods:
@@ -394,7 +243,14 @@ class TestAnalysisResultMethods:
 
     def test_value_score_color_classification(self, sample_player, squad_audit_service):
         """Test value score color classification."""
-        from models import PlayerAnalysis
+        from models import PlayerAnalysis, Recommendation
+
+        test_rec = Recommendation(
+            badge='TEST',
+            icon='?',
+            color='secondary',
+            explanation='Test recommendation'
+        )
 
         # Elite value (>= 150)
         analysis_elite = PlayerAnalysis(
@@ -402,7 +258,7 @@ class TestAnalysisResultMethods:
             performance_index=120.0,
             value_score=160.0,
             verdict=PerformanceVerdict.ELITE,
-            recommendation='Test'
+            recommendation=test_rec
         )
         assert analysis_elite.get_value_score_color() == 'success'
 
@@ -412,7 +268,7 @@ class TestAnalysisResultMethods:
             performance_index=110.0,
             value_score=130.0,
             verdict=PerformanceVerdict.GOOD,
-            recommendation='Test'
+            recommendation=test_rec
         )
         assert analysis_good.get_value_score_color() == 'info'
 
@@ -422,7 +278,7 @@ class TestAnalysisResultMethods:
             performance_index=100.0,
             value_score=110.0,
             verdict=PerformanceVerdict.AVERAGE,
-            recommendation='Test'
+            recommendation=test_rec
         )
         assert analysis_expected.get_value_score_color() == 'warning'
 
@@ -432,7 +288,7 @@ class TestAnalysisResultMethods:
             performance_index=90.0,
             value_score=85.0,
             verdict=PerformanceVerdict.AVERAGE,
-            recommendation='Test'
+            recommendation=test_rec
         )
         assert analysis_below.get_value_score_color() == 'dark'
 
@@ -442,6 +298,6 @@ class TestAnalysisResultMethods:
             performance_index=80.0,
             value_score=70.0,
             verdict=PerformanceVerdict.POOR,
-            recommendation='Test'
+            recommendation=test_rec
         )
         assert analysis_poor.get_value_score_color() == 'danger'

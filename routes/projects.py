@@ -5,6 +5,8 @@ Projects Routes Blueprint - Refactored.
 from flask import Blueprint, render_template, request, send_file, current_app, session, make_response
 from io import BytesIO, StringIO
 import csv
+import re
+from collections import OrderedDict
 from pydantic import ValidationError
 from extensions import csrf
 from services.squad_analysis_manager import SquadAnalysisManager
@@ -12,6 +14,140 @@ from models.constants import PositionCategory
 
 projects_bp = Blueprint('projects', __name__, url_prefix='/projects')
 squad_manager = SquadAnalysisManager()
+
+
+def group_divisions_by_country(divisions: list, league_baselines=None) -> OrderedDict:
+    """
+    Group divisions by country for prettier dropdown display.
+
+    Returns OrderedDict with country as key and list of (division_name, is_low_sample) tuples.
+    """
+    # Common country prefixes in division names
+    country_patterns = [
+        # Multi-word countries first
+        ('South Korean', 'South Korea'),
+        ('South African', 'South Africa'),
+        ('North American', 'North America'),
+        ('New Zealand', 'New Zealand'),
+        ('Hong Kong', 'Hong Kong'),
+        ('Saudi Arabian', 'Saudi Arabia'),
+        ('United Arab', 'UAE'),
+        # Single word countries
+        ('English', 'England'),
+        ('Scottish', 'Scotland'),
+        ('Welsh', 'Wales'),
+        ('Irish', 'Ireland'),
+        ('German', 'Germany'),
+        ('French', 'France'),
+        ('Spanish', 'Spain'),
+        ('Italian', 'Italy'),
+        ('Dutch', 'Netherlands'),
+        ('Belgian', 'Belgium'),
+        ('Portuguese', 'Portugal'),
+        ('Brazilian', 'Brazil'),
+        ('Argentine', 'Argentina'),
+        ('Mexican', 'Mexico'),
+        ('American', 'USA'),
+        ('Canadian', 'Canada'),
+        ('Japanese', 'Japan'),
+        ('Chinese', 'China'),
+        ('Australian', 'Australia'),
+        ('Russian', 'Russia'),
+        ('Turkish', 'Turkey'),
+        ('Greek', 'Greece'),
+        ('Polish', 'Poland'),
+        ('Czech', 'Czech Republic'),
+        ('Austrian', 'Austria'),
+        ('Swiss', 'Switzerland'),
+        ('Swedish', 'Sweden'),
+        ('Norwegian', 'Norway'),
+        ('Danish', 'Denmark'),
+        ('Finnish', 'Finland'),
+        ('Croatian', 'Croatia'),
+        ('Serbian', 'Serbia'),
+        ('Ukrainian', 'Ukraine'),
+        ('Romanian', 'Romania'),
+        ('Bulgarian', 'Bulgaria'),
+        ('Hungarian', 'Hungary'),
+        ('Colombian', 'Colombia'),
+        ('Chilean', 'Chile'),
+        ('Peruvian', 'Peru'),
+        ('Ecuadorian', 'Ecuador'),
+        ('Uruguayan', 'Uruguay'),
+        ('Venezuelan', 'Venezuela'),
+        ('Paraguayan', 'Paraguay'),
+        ('Bolivian', 'Bolivia'),
+        ('Costa Rican', 'Costa Rica'),
+        ('Honduran', 'Honduras'),
+        ('Guatemalan', 'Guatemala'),
+        ('Panamanian', 'Panama'),
+        ('Jamaican', 'Jamaica'),
+        ('Israeli', 'Israel'),
+        ('Egyptian', 'Egypt'),
+        ('Moroccan', 'Morocco'),
+        ('Tunisian', 'Tunisia'),
+        ('Algerian', 'Algeria'),
+        ('Nigerian', 'Nigeria'),
+        ('Ghanaian', 'Ghana'),
+        ('Kenyan', 'Kenya'),
+        ('Indian', 'India'),
+        ('Thai', 'Thailand'),
+        ('Vietnamese', 'Vietnam'),
+        ('Malaysian', 'Malaysia'),
+        ('Singaporean', 'Singapore'),
+        ('Indonesian', 'Indonesia'),
+        ('Filipino', 'Philippines'),
+        ('Cypriot', 'Cyprus'),
+        ('Icelandic', 'Iceland'),
+        ('Slovenian', 'Slovenia'),
+        ('Slovak', 'Slovakia'),
+        ('Belarusian', 'Belarus'),
+        ('Lithuanian', 'Lithuania'),
+        ('Latvian', 'Latvia'),
+        ('Estonian', 'Estonia'),
+        ('Georgian', 'Georgia'),
+        ('Armenian', 'Armenia'),
+        ('Azerbaijani', 'Azerbaijan'),
+        ('Kazakh', 'Kazakhstan'),
+        ('Uzbek', 'Uzbekistan'),
+        ('Qatari', 'Qatar'),
+        ('Kuwaiti', 'Kuwait'),
+        ('Bahraini', 'Bahrain'),
+        ('Omani', 'Oman'),
+        ('Azeri', 'Azerbaijan'),
+    ]
+
+    grouped = {}
+
+    for division in sorted(divisions):
+        country = 'Other'
+
+        for prefix, country_name in country_patterns:
+            if division.startswith(prefix):
+                country = country_name
+                break
+
+        # Check for low sample size
+        is_low_sample = False
+        if league_baselines:
+            is_low_sample = league_baselines.is_low_sample_size(division)
+
+        if country not in grouped:
+            grouped[country] = []
+        grouped[country].append((division, is_low_sample))
+
+    # Sort countries alphabetically, but put major leagues first
+    priority_countries = ['England', 'Spain', 'Germany', 'Italy', 'France']
+
+    sorted_grouped = OrderedDict()
+    for country in priority_countries:
+        if country in grouped:
+            sorted_grouped[country] = sorted(grouped.pop(country))
+
+    for country in sorted(grouped.keys()):
+        sorted_grouped[country] = sorted(grouped[country])
+
+    return sorted_grouped
 
 @projects_bp.route("/")
 def projects_home():
@@ -78,10 +214,11 @@ def squad_audit_tracker():
 
     analysis_result = None
     errors = []
-    available_divisions = []
+    grouped_divisions = OrderedDict()
 
     if league_baselines:
         available_divisions = league_baselines.get_available_divisions()
+        grouped_divisions = group_divisions_by_country(available_divisions, league_baselines)
 
     if request.method == "POST":
         file = request.files.get('html_file')
@@ -112,7 +249,7 @@ def squad_audit_tracker():
         analysis_result=analysis_result,
         errors=errors,
         formation_suggestions=formation_suggestions,
-        available_divisions=available_divisions,
+        grouped_divisions=grouped_divisions,
         league_baselines=league_baselines
     )
 
