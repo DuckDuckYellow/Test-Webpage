@@ -104,14 +104,13 @@
                             </label>
                             <select class="form-select" id="division" name="division">
                                 <option value="">No league comparison</option>
-                                {% if available_divisions %}
-                                    {% for div in available_divisions %}
-                                    <option value="{{ div }}">
-                                        {{ div }}
-                                        {% if league_baselines and league_baselines.is_low_sample_size(div) %}
-                                            ⚠️ (Low sample)
-                                        {% endif %}
-                                    </option>
+                                {% if grouped_divisions %}
+                                    {% for country, divisions in grouped_divisions.items() %}
+                                    <optgroup label="🏴 {{ country }}">
+                                        {% for div_name, is_low_sample in divisions %}
+                                        <option value="{{ div_name }}">{{ div_name }}{% if is_low_sample %} ⚠️{% endif %}</option>
+                                        {% endfor %}
+                                    </optgroup>
                                     {% endfor %}
                                 {% endif %}
                             </select>
@@ -149,6 +148,9 @@
     {% endif %}
 
     {% if analysis_result %}
+    <!-- Hidden CSRF token for AJAX calls -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
     <!-- Analysis Results -->
     <div class="row mb-4">
         <div class="col-12">
@@ -268,7 +270,7 @@
                     </div>
                 </div>
 
-                <!-- Results Table -->
+                <!-- Results Table - Simplified with Expandable Details -->
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0" id="squadTable">
@@ -284,77 +286,41 @@
                                         Age <i class="bi bi-arrow-down-up"></i>
                                     </th>
                                     <th class="sortable text-end" data-sort="value" style="cursor: pointer;">
-                                        Value Score
+                                        Value
                                         <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
-                                            data-bs-placement="top"
                                             title="Value Score = (Role Score / Wage Index) × 100"></i>
                                         <i class="bi bi-arrow-down-up"></i>
                                     </th>
-                                    <th class="sortable text-end" data-sort="league-value" style="cursor: pointer;">
-                                        League Value
-                                        {% if analysis_result.selected_division %}
-                                        <i class="bi bi-info-circle text-muted" data-bs-toggle="tooltip"
-                                            title="Value vs League Avg Wage ({{ analysis_result.selected_division }})"></i>
-                                        {% endif %}
-                                        <i class="bi bi-arrow-down-up"></i>
-                                    </th>
                                     <th class="sortable text-center" data-sort="verdict" style="cursor: pointer;">
-                                        Perf <i class="bi bi-arrow-down-up"></i>
-                                    </th>
-                                    <th class="sortable" data-sort="role" style="cursor: pointer;">
-                                        Best Role
-                                        <i class="bi bi-arrow-down-up"></i>
+                                        Verdict <i class="bi bi-arrow-down-up"></i>
                                     </th>
                                     <th class="text-end">Wage</th>
-                                    <th class="sortable text-center" data-sort="contract" style="cursor: pointer;">
-                                        Contract Expiry <i class="bi bi-arrow-down-up"></i>
-                                    </th>
-                                    <th>Stats</th>
                                     <th>Action</th>
+                                    <th style="width: 40px;"></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for analysis in analysis_result.get_sorted_by_value() %}
-                                <tr class="player-row" data-name="{{ analysis.player.name|lower }}"
-                                    data-position="{{ analysis.player.get_position_category().value }}"
-                                    data-all-positions="{% for pos in analysis.player.all_possible_positions %}{{ pos.value }}{% if not loop.last %},{% endif %}{% endfor %}"
-                                    data-verdict="{{ analysis.player.best_role.tier }}"
-                                    data-insufficient-data="{% if analysis.player.mins is not none and analysis.player.mins < 200 %}true{% else %}false{% endif %}">
+                            {% for analysis in analysis_result.get_sorted_by_value() %}
+                            <tbody class="player-group" data-player-id="{{ loop.index }}"
+                                   data-name="{{ analysis.player.name|lower }}"
+                                   data-position="{{ analysis.player.get_position_category().value }}"
+                                   data-all-positions="{% for pos in analysis.player.all_possible_positions %}{{ pos.value }}{% if not loop.last %},{% endif %}{% endfor %}"
+                                   data-verdict="{{ analysis.player.best_role.tier }}"
+                                   data-value="{{ analysis.value_score }}"
+                                   data-insufficient-data="{% if analysis.player.mins is not none and analysis.player.mins < 200 %}true{% else %}false{% endif %}">
+                                <!-- Main Row (7 columns + expand) -->
+                                <tr class="player-row">
                                     <td class="fw-semibold">{{ analysis.player.name }}</td>
                                     <td>
                                         <span class="badge bg-secondary">{{ analysis.player.position }}</span>
                                     </td>
                                     <td class="text-center">{{ analysis.player.age }}</td>
-                                    <td class="text-end" data-value="{{ analysis.value_score }}">
+                                    <td class="text-end">
                                         {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
                                         <span class="badge bg-secondary fs-6">N/A</span>
                                         {% else %}
                                         <span class="badge bg-{{ analysis.get_value_score_color() }} fs-6">
                                             {{ "%.1f"|format(analysis.value_score) }}
                                         </span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end" data-value="{{ analysis.league_value_score or 0 }}">
-                                        {% if analysis.league_value_score is not none %}
-                                            <span class="badge bg-{{ analysis.get_league_value_score_color() }} fs-6">
-                                                {{ "%.1f"|format(analysis.league_value_score) }}
-                                            </span>
-                                            {% if analysis.league_baseline and analysis.league_baseline.player_count == 0 %}
-                                                <span class="badge bg-secondary small">Estimated</span>
-                                            {% endif %}
-                                            {% set comparison = analysis.get_value_comparison_indicator() %}
-                                            {% if comparison %}
-                                                <br><span class="badge bg-{{ 'primary' if comparison == 'League Bargain' else 'warning' }} small mt-1"
-                                                          data-bs-toggle="tooltip"
-                                                          title="{% if comparison == 'League Bargain' %}Underpaid vs league avg (great market value!){% else %}Lower league value due to high squad wages (squad context matters){% endif %}">
-                                                    {{ comparison }}
-                                                </span>
-                                            {% endif %}
-                                            <div class="small text-muted">
-                                                {{ "%.0f"|format(analysis.league_wage_percentile) }}th percentile
-                                            </div>
-                                        {% else %}
-                                            <span class="text-muted small">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td class="text-center">
@@ -366,53 +332,171 @@
                                         </span>
                                         {% endif %}
                                     </td>
-
-                                    <!-- Best Role -->
-                                    <td>
-                                        {% if analysis.player.mins is none or analysis.player.mins >= 500 %}
-                                        {% set role = analysis.player.best_role %}
-                                        <span class="badge bg-primary"
-                                            data-player-name="{{ analysis.player.name }}"
-                                            onclick="openRoleModal(this.dataset.playerName)" style="cursor: pointer;">
-                                            {{ role.display_name|trim }}
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-primary" data-bs-toggle="tooltip"
-                                            title="Less than 500 minutes played">Low Sample</span>
-                                        {% endif %}
-                                    </td>
                                     <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
-                                    <td class="text-center" data-contract="{{ analysis.player.get_contract_months_remaining() }}">
-                                        <span class="badge bg-{{ analysis.player.get_contract_expiry_color() }}">
-                                            {{ analysis.player.get_contract_expiry_relative() }}
+                                    <td>
+                                        <span class="badge bg-{{ analysis.recommendation.color }}"
+                                              title="{{ analysis.recommendation.get_title() }}"
+                                              aria-label="{{ analysis.recommendation.get_title() }}">
+                                            {{ analysis.recommendation.icon }} {{ analysis.recommendation.badge }}
+                                            {% if analysis.recommendation.has_contract_warning %}
+                                            <span class="ms-1">⏰</span>
+                                            {% endif %}
                                         </span>
                                     </td>
-                                    <td class="small">
-                                        {% if analysis.top_metrics %}
-                                        <div class="d-flex flex-column gap-1">
-                                            {% for metric_line in analysis.top_metrics %}
-                                            <div>{{ metric_line }}</div>
-                                            {% endfor %}
-                                        </div>
-                                        {% else %}
-                                        <span class="text-muted">N/A</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="small">
-                                        {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
-                                        {% if rec_parts|length == 2 %}
-                                        <div class="d-flex flex-column gap-1">
-                                            <div><span class="badge bg-primary text-wrap">{{ rec_parts[0] }}</span>
-                                            </div>
-                                            <div class="text-muted">{{ rec_parts[1] }}</div>
-                                        </div>
-                                        {% else %}
-                                        {{ analysis.recommendation }}
-                                        {% endif %}
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-link text-muted p-0 expand-btn" type="button"
+                                                aria-label="Expand details">
+                                            <i class="bi bi-chevron-right expand-icon"></i>
+                                        </button>
                                     </td>
                                 </tr>
-                                {% endfor %}
+                                <!-- Detail Row (hidden by default) -->
+                                <tr class="detail-row d-none {% if analysis.player.mins is not none and analysis.player.mins < 200 %}hard-floor{% elif analysis.player.mins is not none and analysis.player.mins < 500 %}soft-floor{% endif %}">
+                                    <td colspan="8" class="bg-light p-0">
+                                        <div class="detail-panel p-3">
+                                            <!-- Minutes Warning Banner -->
+                                            {% if analysis.player.mins is not none and analysis.player.mins < 200 %}
+                                            <div class="alert alert-warning py-2 mb-3">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                <strong>Insufficient Data</strong> - Only {{ analysis.player.mins }} minutes played. Stats unreliable.
+                                            </div>
+                                            {% elif analysis.player.mins is not none and analysis.player.mins < 500 %}
+                                            <div class="alert alert-warning py-2 mb-3">
+                                                <i class="bi bi-exclamation-triangle"></i>
+                                                <strong>Projected Stats</strong> - Only {{ analysis.player.mins }} minutes played. Treat as provisional.
+                                            </div>
+                                            {% endif %}
+
+                                            <div class="row">
+                                                <!-- Left: Role & KPIs -->
+                                                <div class="col-md-7">
+                                                    <!-- Best Role -->
+                                                    <div class="mb-3">
+                                                        <strong>Best Role:</strong>
+                                                        {% if analysis.player.best_role %}
+                                                        <span class="badge bg-primary ms-1"
+                                                              data-player-name="{{ analysis.player.name }}"
+                                                              onclick="openRoleModal(this.dataset.playerName)"
+                                                              style="cursor: pointer;">
+                                                            {{ analysis.player.best_role.display_name }}
+                                                        </span>
+                                                        <small class="text-muted">(click for full breakdown)</small>
+                                                        {% else %}
+                                                        <span class="text-muted">N/A</span>
+                                                        {% endif %}
+                                                    </div>
+
+                                                    <!-- KPI Bars -->
+                                                    {% if analysis.player.best_role and analysis.player.best_role.metric_scores %}
+                                                    {% set metrics = analysis.player.best_role.metric_scores %}
+                                                    {% set primary_metrics = [] %}
+                                                    {% set secondary_metrics = [] %}
+                                                    {% for metric_name, metric_data in metrics.items() %}
+                                                        {% if metric_data.weight == 'PRIMARY' %}
+                                                            {% set _ = primary_metrics.append((metric_name, metric_data)) %}
+                                                        {% else %}
+                                                            {% set _ = secondary_metrics.append((metric_name, metric_data)) %}
+                                                        {% endif %}
+                                                    {% endfor %}
+
+                                                    <!-- Primary KPIs -->
+                                                    {% if primary_metrics %}
+                                                    <div class="mb-3">
+                                                        <small class="text-uppercase text-muted fw-bold">Primary KPIs (70% weight)</small>
+                                                        <div class="kpi-bars mt-2">
+                                                            {% for metric_name, metric_data in primary_metrics %}
+                                                            {% set bar_width = [metric_data.score, 100]|min %}
+                                                            {% set tier_color = {'ELITE': 'success', 'GOOD': 'info', 'AVERAGE': 'warning', 'POOR': 'danger', 'CRITICAL': 'dark'}.get(metric_data.tier, 'secondary') %}
+                                                            <div class="kpi-bar-row d-flex align-items-center mb-2">
+                                                                <div class="kpi-label small" style="width: 100px;">{{ metric_name.replace('_90', '/90').replace('_pct', '%').replace('_', ' ').title() }}</div>
+                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                                                    <div class="kpi-bar-fill bg-{{ tier_color }}" data-width="{{ bar_width }}" style="height: 100%; width: 0; border-radius: 4px;"></div>
+                                                                </div>
+                                                                <span class="badge bg-{{ tier_color }} kpi-tier" style="width: 60px;">{{ metric_data.tier }}</span>
+                                                                <small class="text-muted ms-2" style="width: 50px;">{{ "%.2f"|format(metric_data.value) }}</small>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+
+                                                    <!-- Secondary KPIs -->
+                                                    {% if secondary_metrics %}
+                                                    <div class="mb-3">
+                                                        <small class="text-uppercase text-muted fw-bold">Secondary KPIs (30% weight)</small>
+                                                        <div class="kpi-bars mt-2">
+                                                            {% for metric_name, metric_data in secondary_metrics %}
+                                                            {% set bar_width = [metric_data.score, 100]|min %}
+                                                            {% set tier_color = {'ELITE': 'success', 'GOOD': 'info', 'AVERAGE': 'warning', 'POOR': 'danger', 'CRITICAL': 'dark'}.get(metric_data.tier, 'secondary') %}
+                                                            <div class="kpi-bar-row d-flex align-items-center mb-2">
+                                                                <div class="kpi-label small" style="width: 100px;">{{ metric_name.replace('_90', '/90').replace('_pct', '%').replace('_', ' ').title() }}</div>
+                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                                                    <div class="kpi-bar-fill bg-{{ tier_color }}" data-width="{{ bar_width }}" style="height: 100%; width: 0; border-radius: 4px;"></div>
+                                                                </div>
+                                                                <span class="badge bg-{{ tier_color }} kpi-tier" style="width: 60px;">{{ metric_data.tier }}</span>
+                                                                <small class="text-muted ms-2" style="width: 50px;">{{ "%.2f"|format(metric_data.value) }}</small>
+                                                            </div>
+                                                            {% endfor %}
+                                                        </div>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% else %}
+                                                    <p class="text-muted small">No metric data available</p>
+                                                    {% endif %}
+                                                </div>
+
+                                                <!-- Right: Contract, League Value, Action -->
+                                                <div class="col-md-5">
+                                                    <div class="bg-white rounded p-3 border">
+                                                        <!-- Contract -->
+                                                        <div class="mb-2">
+                                                            <strong>Contract:</strong>
+                                                            <span class="badge bg-{{ analysis.player.get_contract_expiry_color() }} ms-1">
+                                                                {{ analysis.player.get_contract_expiry_relative() }}
+                                                            </span>
+                                                            {% if analysis.player.expires and analysis.player.expires != "-" %}
+                                                            <small class="text-muted">({{ analysis.player.expires }})</small>
+                                                            {% endif %}
+                                                        </div>
+
+                                                        <!-- League Value -->
+                                                        {% if analysis.league_value_score is not none %}
+                                                        <div class="mb-2">
+                                                            <strong>League Value:</strong>
+                                                            <span class="badge bg-{{ analysis.get_league_value_score_color() }} ms-1">
+                                                                {{ "%.1f"|format(analysis.league_value_score) }}
+                                                            </span>
+                                                            <small class="text-muted">({{ "%.0f"|format(analysis.league_wage_percentile) }}th percentile)</small>
+                                                            {% if analysis.league_baseline and analysis.league_baseline.player_count == 0 %}
+                                                            <span class="badge bg-secondary small">Estimated</span>
+                                                            {% endif %}
+                                                            {% set comparison = analysis.get_value_comparison_indicator() %}
+                                                            {% if comparison %}
+                                                            <br>
+                                                            <span class="badge bg-{{ 'primary' if comparison == 'League Bargain' else 'warning' }} small mt-1"
+                                                                  title="{% if comparison == 'League Bargain' %}Underpaid vs league avg{% else %}Squad wages explain lower league value{% endif %}">
+                                                                {{ comparison }}
+                                                            </span>
+                                                            {% endif %}
+                                                        </div>
+                                                        {% endif %}
+
+                                                        <!-- Action Explanation -->
+                                                        <div class="mt-3 pt-2 border-top">
+                                                            <strong>Action:</strong>
+                                                            <span class="badge bg-{{ analysis.recommendation.color }} ms-1">
+                                                                {{ analysis.recommendation.icon }} {{ analysis.recommendation.badge }}
+                                                            </span>
+                                                            <p class="text-muted small mb-0 mt-1">{{ analysis.recommendation.explanation }}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
                             </tbody>
+                            {% endfor %}
                         </table>
                     </div>
                 </div>
@@ -457,7 +541,7 @@
                                         <strong>Value:</strong> {{ "%.1f"|format(analysis.value_score) }} |
                                         <strong>Performance:</strong> {{ "%.1f"|format(analysis.performance_index) }}
                                     </p>
-                                    <p class="mb-0 small text-muted">{{ analysis.recommendation }}</p>
+                                    <p class="mb-0 small text-muted">{{ analysis.recommendation.badge }} - {{ analysis.recommendation.explanation }}</p>
                                 </div>
                             </div>
                         </div>
@@ -547,12 +631,10 @@
                                     </td>
                                     <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
                                     <td class="small">
-                                        {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
-                                        {% if rec_parts|length == 2 %}
-                                        <strong>{{ rec_parts[0] }}</strong> - {{ rec_parts[1] }}
-                                        {% else %}
-                                        {{ analysis.recommendation }}
-                                        {% endif %}
+                                        <span class="badge bg-{{ analysis.recommendation.color }}">
+                                            {{ analysis.recommendation.icon }} {{ analysis.recommendation.badge }}
+                                        </span>
+                                        <span class="text-muted ms-1">{{ analysis.recommendation.explanation }}</span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -631,12 +713,10 @@
                                     </td>
                                     <td class="text-end small" style="white-space: nowrap;">{{ analysis.player.get_wage_formatted() }}</td>
                                     <td class="small">
-                                        {% set rec_parts = analysis.recommendation.split(' - ', 1) %}
-                                        {% if rec_parts|length == 2 %}
-                                        <strong>{{ rec_parts[0] }}</strong> - {{ rec_parts[1] }}
-                                        {% else %}
-                                        {{ analysis.recommendation }}
-                                        {% endif %}
+                                        <span class="badge bg-{{ analysis.recommendation.color }}">
+                                            {{ analysis.recommendation.icon }} {{ analysis.recommendation.badge }}
+                                        </span>
+                                        <span class="text-muted ms-1">{{ analysis.recommendation.explanation }}</span>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -765,7 +845,42 @@
 </div>
 
 {% if analysis_result %}
-<!-- JavaScript for Table Sorting and Filtering -->
+<!-- CSS for KPI Bar Animations and Detail Panels -->
+<style>
+    /* KPI Bar Animations */
+    .kpi-bar-fill {
+        width: 0;
+        transition: width 0.4s ease-out 0.2s; /* 0.2s delay */
+    }
+
+    /* Desaturated bars for unreliable data */
+    .detail-row.hard-floor .kpi-bar-fill {
+        filter: grayscale(0.7) opacity(0.5);
+    }
+    .detail-row.hard-floor .kpi-bar-container {
+        opacity: 0.6;
+    }
+
+    /* Expand button icon rotation */
+    .expand-icon {
+        transition: transform 0.2s ease;
+    }
+    .player-group.expanded .expand-icon {
+        transform: rotate(90deg);
+    }
+
+    /* Detail panel styling */
+    .detail-panel {
+        border-top: 2px solid #dee2e6;
+    }
+
+    /* Hover effect on player row */
+    .player-row:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+</style>
+
+<!-- JavaScript for Table Sorting, Filtering, and Expand/Collapse -->
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Initialize Bootstrap tooltips
@@ -775,8 +890,7 @@
         });
 
         const table = document.getElementById('squadTable');
-        const tbody = table.querySelector('tbody');
-        const rows = Array.from(tbody.querySelectorAll('.player-row'));
+        const playerGroups = Array.from(table.querySelectorAll('tbody.player-group'));
         const searchInput = document.getElementById('searchInput');
         const positionFilter = document.getElementById('positionFilter');
         const verdictFilter = document.getElementById('verdictFilter');
@@ -786,6 +900,49 @@
 
         // Initialize current sort state (default: value score descending)
         let currentSort = { column: 'value', direction: 'desc' };
+
+        // ==================== EXPAND/COLLAPSE ====================
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const playerGroup = this.closest('.player-group');
+                const detailRow = playerGroup.querySelector('.detail-row');
+                const isExpanding = !playerGroup.classList.contains('expanded');
+
+                // Toggle expanded state
+                playerGroup.classList.toggle('expanded');
+                detailRow.classList.toggle('d-none');
+                detailRow.classList.toggle('expanded');
+
+                // Animate KPI bars on expand
+                if (isExpanding) {
+                    setTimeout(() => {
+                        detailRow.querySelectorAll('.kpi-bar-fill').forEach(bar => {
+                            const targetWidth = bar.dataset.width || 0;
+                            bar.style.width = targetWidth + '%';
+                        });
+                    }, 50); // Small delay for CSS transition to kick in
+                } else {
+                    // Reset bars on collapse
+                    detailRow.querySelectorAll('.kpi-bar-fill').forEach(bar => {
+                        bar.style.width = '0';
+                    });
+                }
+            });
+        });
+
+        // Also allow clicking anywhere on the player row to expand (optional)
+        document.querySelectorAll('.player-row').forEach(row => {
+            row.style.cursor = 'pointer';
+            row.addEventListener('click', function(e) {
+                // Don't trigger if clicking on a badge or button
+                if (e.target.closest('.badge') || e.target.closest('button')) return;
+
+                const playerGroup = this.closest('.player-group');
+                const expandBtn = playerGroup.querySelector('.expand-btn');
+                expandBtn.click();
+            });
+        });
 
         window.openRoleModal = function (playerName) {
             const modal = new bootstrap.Modal(document.getElementById('roleDetailModal'));
@@ -833,7 +990,7 @@
                 });
         };
 
-        // Sorting functionality
+        // ==================== SORTING ====================
         document.querySelectorAll('.sortable').forEach(header => {
             header.addEventListener('click', function () {
                 const column = this.dataset.sort;
@@ -860,7 +1017,8 @@
                 'POOR': 4
             };
 
-            const sortedRows = rows.sort((a, b) => {
+            // Sort the playerGroups (tbody elements)
+            const sortedGroups = [...playerGroups].sort((a, b) => {
                 // Always put players with insufficient data at the bottom
                 const aInsufficient = a.dataset.insufficientData === 'true';
                 const bInsufficient = b.dataset.insufficientData === 'true';
@@ -870,6 +1028,8 @@
 
                 // Both have insufficient data or both have sufficient data - sort normally
                 let aVal, bVal;
+                const aRow = a.querySelector('.player-row');
+                const bRow = b.querySelector('.player-row');
 
                 if (column === 'name') {
                     aVal = a.dataset.name;
@@ -882,19 +1042,13 @@
                     aVal = verdictOrder[a.dataset.verdict] || 99;
                     bVal = verdictOrder[b.dataset.verdict] || 99;
                 } else if (column === 'age') {
-                    aVal = parseInt(a.children[2].textContent);
-                    bVal = parseInt(b.children[2].textContent);
+                    // Age is in column index 2
+                    aVal = parseInt(aRow.children[2].textContent);
+                    bVal = parseInt(bRow.children[2].textContent);
                 } else if (column === 'value') {
-                    aVal = parseFloat(a.children[3].dataset.value);
-                    bVal = parseFloat(b.children[3].dataset.value);
-                } else if (column === 'role') {
-                    // Extract role name from the badge text (cleaning whitespace)
-                    aVal = a.children[5].textContent.trim();
-                    bVal = b.children[5].textContent.trim();
-                } else if (column === 'contract') {
-                    // Sort by months remaining (lower = expires sooner)
-                    aVal = parseInt(a.children[7].dataset.contract);
-                    bVal = parseInt(b.children[7].dataset.contract);
+                    // Value is stored in data attribute on tbody
+                    aVal = parseFloat(a.dataset.value) || 0;
+                    bVal = parseFloat(b.dataset.value) || 0;
                 }
 
                 if (direction === 'asc') {
@@ -904,9 +1058,9 @@
                 }
             });
 
-            // Clear and re-append sorted rows
-            tbody.innerHTML = '';
-            sortedRows.forEach(row => tbody.appendChild(row));
+            // Re-append sorted tbody elements after thead
+            const thead = table.querySelector('thead');
+            sortedGroups.forEach(group => table.appendChild(group));
         }
 
         function updateSortLabel() {
@@ -915,15 +1069,13 @@
                 position: 'Position',
                 age: 'Age',
                 value: 'Value Score',
-                verdict: 'Performance',
-                role: 'Best Role',
-                contract: 'Contract Expiry'
+                verdict: 'Verdict'
             };
             const direction = currentSort.direction === 'asc' ? 'Ascending' : 'Descending';
             currentSortLabel.textContent = `${labels[currentSort.column]} (${direction})`;
         }
 
-        // Filtering functionality
+        // ==================== FILTERING ====================
         function filterRows() {
             const searchTerm = searchInput.value.toLowerCase();
             const selectedPosition = positionFilter.value;
@@ -931,21 +1083,22 @@
 
             let visibleRowCount = 0;
 
-            rows.forEach(row => {
-                const name = row.dataset.name;
-                const position = row.dataset.position;
-                const allPositions = row.dataset.allPositions ? row.dataset.allPositions.split(',') : [position];
-                const verdict = row.dataset.verdict;
+            // Filter by showing/hiding entire tbody elements
+            playerGroups.forEach(group => {
+                const name = group.dataset.name;
+                const position = group.dataset.position;
+                const allPositions = group.dataset.allPositions ? group.dataset.allPositions.split(',') : [position];
+                const verdict = group.dataset.verdict;
 
                 const matchesSearch = !searchTerm || name.includes(searchTerm);
                 const matchesPosition = !selectedPosition || allPositions.includes(selectedPosition);
                 const matchesVerdict = !selectedVerdict || verdict === selectedVerdict;
 
                 if (matchesSearch && matchesPosition && matchesVerdict) {
-                    row.style.display = '';
+                    group.style.display = '';
                     visibleRowCount++;
                 } else {
-                    row.style.display = 'none';
+                    group.style.display = 'none';
                 }
             });
 
@@ -966,122 +1119,7 @@
         // Initial sort label
         updateSortLabel();
 
-        // Position change handler
-        document.querySelectorAll('.position-selector').forEach(selector => {
-            selector.addEventListener('change', function () {
-                const playerName = this.dataset.playerName;
-                const newPosition = this.value;
-                const row = this.closest('tr');
-                const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
-
-                // Show loading state
-                const originalHTML = row.innerHTML;
-                row.style.opacity = '0.5';
-                row.style.pointerEvents = 'none';
-
-                // Make AJAX request to recalculate
-                fetch('{{ url_for("projects.recalculate_player_position") }}', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken
-                    },
-                    credentials: 'same-origin',  // Include cookies in request
-                    body: JSON.stringify({
-                        player_name: playerName,
-                        new_position: newPosition
-                    })
-                })
-                    .then(response => {
-                        if (!response.ok) {
-                            // Try to parse error message from response
-                            return response.json().then(data => {
-                                throw new Error(data.error || 'Server error');
-                            }).catch(() => {
-                                throw new Error('Server error: ' + response.status);
-                            });
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.success) {
-                            // Update the row with new data
-                            updatePlayerRow(row, data);
-
-                            // Update poor performers section
-                            updatePoorPerformersSection();
-
-                            // Show success feedback
-                            row.style.opacity = '1';
-                            row.style.pointerEvents = 'auto';
-                            row.classList.add('table-success');
-                            setTimeout(() => row.classList.remove('table-success'), 1000);
-                        } else {
-                            console.error('Recalculation failed:', data.error);
-                            alert('Error: ' + (data.error || 'Unknown error'));
-                            row.style.opacity = '1';
-                            row.style.pointerEvents = 'auto';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Failed to recalculate position: ' + error.message);
-                        row.style.opacity = '1';
-                        row.style.pointerEvents = 'auto';
-                    });
-            });
-        });
-
-        function updatePlayerRow(row, data) {
-            // Update data attributes
-            row.dataset.position = data.position;
-            row.dataset.verdict = data.verdict;
-
-            // Update value score cell (index 3)
-            const valueCell = row.children[3];
-            const valueBadge = valueCell.querySelector('.badge');
-            valueBadge.textContent = data.value_score;
-            valueBadge.className = `badge bg-${data.value_score_color} fs-6`;
-            valueCell.dataset.value = data.value_score;
-
-            // Update performance verdict cell (index 4)
-            const verdictCell = row.children[4];
-            let verdictColor = 'secondary';
-            if (data.verdict === 'ELITE') verdictColor = 'success';
-            else if (data.verdict === 'GOOD') verdictColor = 'info';
-            else if (data.verdict === 'AVERAGE') verdictColor = 'warning';
-            else if (data.verdict === 'POOR') verdictColor = 'danger';
-            verdictCell.innerHTML = `<span class="badge bg-${verdictColor}">${data.verdict}</span>`;
-
-            // Update top metrics cell (index 8 - after removing Suggested Role column)
-            const metricsCell = row.children[8];
-            if (data.top_metrics && data.top_metrics.length > 0) {
-                metricsCell.innerHTML = `<span class="small">${data.top_metrics.join(' | ')}</span>`;
-            } else {
-                metricsCell.innerHTML = '<span class="text-muted small">N/A</span>';
-            }
-
-            // Update recommendation cell (index 9 - after removing Suggested Role column)
-            const recCell = row.children[9];
-            const recParts = data.recommendation.split(' - ', 2);
-            if (recParts.length === 2) {
-                recCell.innerHTML = `
-                <div class="d-flex flex-column gap-1 small">
-                    <div><span class="badge bg-primary text-wrap">${recParts[0]}</span></div>
-                    <div class="text-muted">${recParts[1]}</div>
-                </div>
-            `;
-            } else {
-                recCell.innerHTML = `<span class="small">${data.recommendation}</span>`;
-            }
-        }
-
-        function updatePoorPerformersSection() {
-            // Reload the page to update poor performers section
-            // In a more sophisticated implementation, this could be done via AJAX
-            // For now, we'll just note that the page should be refreshed
-            console.log('Poor performers section needs manual refresh');
-        }
+        // NOTE: Position change handler removed - feature needs reimplementation for new expandable table structure
 
         // Reinitialize tooltips after any dynamic content changes
         function reinitializeTooltips() {

@@ -25,6 +25,26 @@ class PerformanceVerdict(Enum):
     AVERAGE = "AVERAGE"
     POOR = "POOR"
 
+
+@dataclass
+class Recommendation:
+    """
+    Structured recommendation for a player.
+
+    Provides icon-enhanced action badges for the simplified UI.
+    The badge/icon/color display in the main table, explanation in detail panel.
+    """
+    badge: str          # Short label: "CORE STARTER", "PROMOTE", "SELL"
+    icon: str           # Unicode icon: ⭐, ↑, $, ✗
+    color: str          # Bootstrap color class: success, danger, warning, info, secondary
+    explanation: str    # Full explanation text for detail panel
+    has_contract_warning: bool = False  # True if Elite/Good with <6m contract
+
+    def get_title(self) -> str:
+        """Full text for aria-label and title attributes."""
+        return f"{self.badge} - {self.explanation}"
+
+
 @dataclass
 class Player:
     """
@@ -215,7 +235,7 @@ class PlayerAnalysis:
     performance_index: float
     value_score: float  # Squad-based value score
     verdict: PerformanceVerdict
-    recommendation: str
+    recommendation: Recommendation  # Structured recommendation with badge/icon/color
     top_metrics: List[str] = field(default_factory=list)
     contract_warning: bool = False
     # League comparison fields

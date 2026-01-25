@@ -10,7 +10,8 @@ from models.squad_audit import (
     PlayerAnalysis,
     SquadAnalysisResult,
     StatusFlag,
-    PerformanceVerdict
+    PerformanceVerdict,
+    Recommendation
 )
 from models.constants import PositionCategory, POSITION_METRICS, METRIC_NAMES
 from models.league_baseline import LeagueWageBaseline, LeagueBaselineCollection
@@ -68,14 +69,16 @@ class SquadAuditService:
         - < 200 mins: Hard Floor - Insufficient data, bypass performance calculation
         - 200-500 mins: Soft Floor - Apply Bayesian Average to prevent one-game outliers
         - > 500 mins: Normal calculation with full player stats
+
+        Note: mins=None is treated as sufficient data for backward compatibility with legacy parsers.
         """
-        mins = player.mins if player.mins is not None else 0
+        mins = player.mins  # Keep as None if not set
 
         # Store all possible positions for filtering (always set this)
         player.all_possible_positions = self.player_evaluator.get_all_possible_positions(player)
 
-        # HARD FLOOR: < 200 minutes
-        if mins < 200:
+        # HARD FLOOR: < 200 minutes (only if mins is explicitly set)
+        if mins is not None and mins < 200:
             # Bypass performance calculation entirely
             # Still need to evaluate roles to set best_role for display
             if not player.best_role:
@@ -90,13 +93,19 @@ class SquadAuditService:
                 league_baseline=None,
                 league_wage_percentile=None,
                 verdict=PerformanceVerdict.POOR,  # Default tier
-                recommendation="INSUFFICIENT DATA - Less than 200 minutes played",
+                recommendation=Recommendation(
+                    badge="LOW DATA",
+                    icon="",
+                    color="secondary",
+                    explanation=f"Insufficient data ({mins} mins played)",
+                    has_contract_warning=False
+                ),
                 top_metrics=["N/A - Insufficient Data"],
                 contract_warning=self._check_contract_warning(player.expires)
             )
 
-        # SOFT FLOOR: 200-500 minutes - Apply Bayesian Average
-        if 200 <= mins < 500:
+        # SOFT FLOOR: 200-500 minutes - Apply Bayesian Average (only if mins is explicitly set)
+        if mins is not None and 200 <= mins < 500:
             self._apply_bayesian_average(player, benchmarks, mins)
 
         # Evaluate roles (uses adjusted stats if Bayesian Average was applied)
@@ -117,13 +126,11 @@ class SquadAuditService:
             league_baselines
         )
 
-        # Add "Projected" prefix for Soft Floor players
-        if 200 <= mins < 500:
-            recommendation = f"PROJECTED - {self._generate_role_recommendation(player, value_score)}"
-            top_metrics = self._format_all_metrics(player.best_role.metric_scores, projected=True)
-        else:
-            recommendation = self._generate_role_recommendation(player, value_score)
-            top_metrics = self._format_all_metrics(player.best_role.metric_scores)
+        # Generate recommendation (Soft Floor players get is_projected=True)
+        # mins=None is treated as full data for backward compatibility
+        is_projected = mins is not None and 200 <= mins < 500
+        recommendation = self._generate_role_recommendation(player, value_score, is_projected=is_projected)
+        top_metrics = self._format_all_metrics(player.best_role.metric_scores, projected=is_projected)
 
         contract_warning = self._check_contract_warning(player.expires)
 
@@ -256,40 +263,161 @@ class SquadAuditService:
 
         return league_value_score, baseline, percentile
 
-    def _generate_role_recommendation(self, player: Player, value_score: float) -> str:
+    def _generate_role_recommendation(
+        self,
+        player: Player,
+        value_score: float,
+        is_projected: bool = False
+    ) -> Recommendation:
         """
-        Generate contract-related recommendations only.
-        Retraining suggestions are not included in this column.
+        Generate structured recommendation with badge, icon, color, and explanation.
+
+        Args:
+            player: Player to generate recommendation for
+            value_score: Calculated value score
+            is_projected: True if player has 200-500 minutes (Soft Floor)
+
+        Returns:
+            Recommendation object with badge/icon/color/explanation
         """
+        # Check contract status for warning overlay
+        contract_warning = self._check_contract_expiring_soon(player)
+
+        # LOW DATA: <500 minutes
         if player.mins is not None and player.mins < 500:
-            return "USE OR SELL - Insufficient data to judge (Sub 500 mins)"
+            mins = player.mins
+            if mins < 200:
+                return Recommendation(
+                    badge="LOW DATA",
+                    icon="",
+                    color="secondary",
+                    explanation=f"Insufficient data ({mins} mins played)",
+                    has_contract_warning=contract_warning
+                )
+            else:
+                return Recommendation(
+                    badge="LOW DATA",
+                    icon="",
+                    color="secondary",
+                    explanation=f"Projected stats only ({mins} mins played)",
+                    has_contract_warning=contract_warning
+                )
 
         # Check for low value score (poor value for money)
         if value_score < 50:
             if player.best_role and player.best_role.tier == 'ELITE':
-                return "CONSIDER WAGE REDUCTION - Elite performance but overpaid"
+                return Recommendation(
+                    badge="WAGE CUT",
+                    icon="💰",
+                    color="warning",
+                    explanation="Elite performance but overpaid",
+                    has_contract_warning=contract_warning
+                )
             else:
-                return "CONSIDER SALE - Poor value for wage cost"
+                return Recommendation(
+                    badge="CONSIDER SALE",
+                    icon="$",
+                    color="danger",
+                    explanation="Poor value for wage cost",
+                    has_contract_warning=contract_warning
+                )
 
         # Contract-related recommendations based on performance tier
         role = player.best_role
         status = player.get_status_flag()
 
         if role.tier == 'ELITE':
-            if status == StatusFlag.TRANSFER_LISTED: return "KEEP & PLAY - Elite ratings despite transfer list"
-            elif status == StatusFlag.U21: return "PROMOTE - Elite young talent"
-            elif player.apps < 10: return "INCREASE MINUTES - Elite output per 90"
-            else: return "CORE STARTER - Elite performance"
+            if status == StatusFlag.TRANSFER_LISTED:
+                return Recommendation(
+                    badge="KEEP & PLAY",
+                    icon="✓",
+                    color="success",
+                    explanation="Elite ratings despite transfer list",
+                    has_contract_warning=contract_warning
+                )
+            elif status == StatusFlag.U21:
+                return Recommendation(
+                    badge="PROMOTE",
+                    icon="↑",
+                    color="info",
+                    explanation="Elite young talent",
+                    has_contract_warning=contract_warning
+                )
+            elif player.apps < 10:
+                return Recommendation(
+                    badge="INCREASE MINS",
+                    icon="⏱",
+                    color="info",
+                    explanation="Elite output per 90",
+                    has_contract_warning=contract_warning
+                )
+            else:
+                return Recommendation(
+                    badge="CORE STARTER",
+                    icon="⭐",
+                    color="success",
+                    explanation="Elite performance",
+                    has_contract_warning=contract_warning
+                )
 
         elif role.tier == 'GOOD':
-            if status == StatusFlag.TRANSFER_LISTED: return "EVALUATE - Good depth option"
-            return "ROTATION/STARTER - Solid performance"
+            if status == StatusFlag.TRANSFER_LISTED:
+                return Recommendation(
+                    badge="EVALUATE",
+                    icon="⇄",
+                    color="warning",
+                    explanation="Good depth option on transfer list",
+                    has_contract_warning=contract_warning
+                )
+            return Recommendation(
+                badge="BACKUP",
+                icon="◐",
+                color="secondary",
+                explanation="Solid rotation option",
+                has_contract_warning=contract_warning
+            )
 
         elif role.tier == 'POOR':
-            if status == StatusFlag.U21: return "DEVELOPMENT REQUIRED - Not ready"
-            return "SELL/REPLACE - Below standard"
+            if status == StatusFlag.U21:
+                return Recommendation(
+                    badge="DEVELOP",
+                    icon="📈",
+                    color="warning",
+                    explanation="Not ready yet",
+                    has_contract_warning=contract_warning
+                )
+            return Recommendation(
+                badge="SELL/REPLACE",
+                icon="✗",
+                color="danger",
+                explanation="Below standard",
+                has_contract_warning=contract_warning
+            )
 
-        return "BACKUP - Average performance"
+        # AVERAGE tier
+        return Recommendation(
+            badge="BACKUP",
+            icon="◐",
+            color="secondary",
+            explanation="Average performance",
+            has_contract_warning=contract_warning
+        )
+
+    def _check_contract_expiring_soon(self, player: Player) -> bool:
+        """Check if Elite/Good player has <6 months on contract."""
+        if not player.best_role or player.best_role.tier not in ['ELITE', 'GOOD']:
+            return False
+
+        if not player.expires or player.expires == "-":
+            return False
+
+        try:
+            expiry_date = datetime.strptime(player.expires, "%d/%m/%Y")
+            today = datetime.now()
+            months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
+            return months_remaining < 6
+        except:
+            return False
 
     def _format_all_metrics(self, metric_scores: Dict[str, Dict], projected: bool = False) -> List[str]:
         """
@@ -359,7 +487,7 @@ class SquadAuditService:
                 "Value Insight": analysis.get_value_comparison_indicator() or "",
                 "Performance": analysis.verdict.value,
                 "Status": analysis.player.inf or "-",
-                "Recommendation": analysis.recommendation,
+                "Recommendation": f"{analysis.recommendation.badge} - {analysis.recommendation.explanation}",
                 "Contract Expires": analysis.player.expires,
                 "Wage": analysis.player.get_wage_formatted(),
                 "Top Metric 1": analysis.top_metrics[0] if len(analysis.top_metrics) > 0 else "-",

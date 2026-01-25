@@ -140,36 +140,81 @@ class RoleRecommendationEngine:
         return [s for s in all_scores if s.role in valid_roles]
 
     def _map_position_to_roles(self, position_str: str) -> List[str]:
-        """Map FM position string to potential roles."""
-        roles = []
+        """
+        Map FM position string to potential roles.
+
+        Handles complex FM position strings like:
+        - "M/AM (RLC)" - M or AM in Right, Left, Center
+        - "M (LC), AM (RLC), ST (C)" - Multiple positions
+        - "D/WB (R)" - Defender or Wing-back on Right
+        """
+        roles = set()
         pos = position_str.upper()
-        
-        if 'GK' in pos:
-            roles.append('GK')
-            
-        if any(x in pos for x in ['D (C)', 'D(C)', 'DC']):
-            roles.extend(['CB-STOPPER', 'BCB'])
-            
-        if any(x in pos for x in ['D (R)', 'D (L)', 'D(R)', 'D(L)', 'WB']):
-            if 'DM' not in pos: # Avoid confusion with DM
-                 roles.extend(['FB', 'WB'])
-            
-        if 'DM' in pos:
-            roles.append('MD')
-            
-        if any(x in pos for x in ['M (C)', 'M(C)', 'MC']):
-            roles.extend(['MD', 'MC'])
-            
-        if any(x in pos for x in ['AM (C)', 'AM(C)', 'AMC']):
-            roles.append('AM(C)')
-            
-        if any(x in pos for x in ['M (R)', 'M (L)', 'AM (R)', 'AM (L)', 'MR', 'ML', 'AMR', 'AML']):
-            roles.extend(['WAP', 'WAS'])
-            
-        if any(x in pos for x in ['ST', 'S (C)']):
-            roles.extend(['ST-PROVIDER', 'ST-GS'])
-            
-        return list(set(roles))
+
+        # Parse the position string to extract position-lateral combinations
+        # Split by comma first for multiple positions
+        position_parts = [p.strip() for p in pos.split(',')]
+
+        for part in position_parts:
+            # Extract base positions and lateral positions
+            # Format: "POS (LATERAL)" or "POS/POS (LATERAL)" or just "POS"
+            import re
+            match = re.match(r'([A-Z/]+)\s*\(([RLC]+)\)?', part)
+
+            if match:
+                base_positions = match.group(1).split('/')  # Handle M/AM
+                laterals = list(match.group(2))  # ['R', 'L', 'C']
+            else:
+                # No parentheses, might be just "GK" or "ST"
+                base_positions = [part.strip()]
+                laterals = ['C']  # Default to center
+
+            for base_pos in base_positions:
+                base_pos = base_pos.strip()
+
+                # Goalkeeper
+                if base_pos == 'GK':
+                    roles.add('GK')
+
+                # Defender (central)
+                if base_pos == 'D' and 'C' in laterals:
+                    roles.add('CB-STOPPER')
+                    roles.add('BCB')
+
+                # Defender (wide) / Wing-back
+                if base_pos in ['D', 'WB'] and ('R' in laterals or 'L' in laterals):
+                    roles.add('FB')
+                    roles.add('WB')
+
+                # Defensive Midfielder
+                if base_pos == 'DM':
+                    roles.add('MD')
+
+                # Central Midfielder
+                if base_pos == 'M' and 'C' in laterals:
+                    roles.add('MD')
+                    roles.add('MC')
+
+                # Wide Midfielder
+                if base_pos == 'M' and ('R' in laterals or 'L' in laterals):
+                    roles.add('WAP')
+                    roles.add('WAS')
+
+                # Attacking Midfielder (central)
+                if base_pos == 'AM' and 'C' in laterals:
+                    roles.add('AM(C)')
+
+                # Attacking Midfielder (wide) / Winger
+                if base_pos == 'AM' and ('R' in laterals or 'L' in laterals):
+                    roles.add('WAP')
+                    roles.add('WAS')
+
+                # Striker
+                if base_pos in ['ST', 'S']:
+                    roles.add('ST-PROVIDER')
+                    roles.add('ST-GS')
+
+        return list(roles)
 
     def get_best_role_in_current_position(self, player: Player, all_scores: List[RoleScore] = None) -> Optional[RoleScore]:
         """
@@ -201,12 +246,17 @@ class RoleRecommendationEngine:
 
         recommendations = []
         valid_role_names = self._map_position_to_roles(player.position)
-        
+
         for score in all_scores:
-            if score.role in valid_role_names:
-                continue # Skip roles they already play
-                
-            # Check logic
+            # Only consider roles the player can actually play
+            if score.role not in valid_role_names:
+                continue
+
+            # Skip current best role (no point recommending what they're already doing)
+            if score.role == current_best_role.role:
+                continue
+
+            # Check if role change is worthwhile
             if self.detector.should_change_role(player, current_best_role, score):
                 recommendations.append(score)
                 

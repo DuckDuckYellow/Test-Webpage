@@ -354,4 +354,5 @@ class TestFMParserIntegration:
         for analysis in result.player_analyses:
             assert analysis.performance_index > 0
             assert analysis.value_score > 0
-            assert len(analysis.recommendation) > 0
+            assert analysis.recommendation is not None
+            assert len(analysis.recommendation.badge) > 0

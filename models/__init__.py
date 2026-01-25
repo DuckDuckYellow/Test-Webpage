@@ -12,7 +12,8 @@ from .squad_audit import (
     PlayerAnalysis,
     SquadAnalysisResult,
     StatusFlag,
-    PerformanceVerdict
+    PerformanceVerdict,
+    Recommendation
 )
 
 __all__ = [
@@ -28,5 +29,6 @@ __all__ = [
     'SquadAnalysisResult',
     'PositionCategory',
     'StatusFlag',
-    'PerformanceVerdict'
+    'PerformanceVerdict',
+    'Recommendation'
 ]
