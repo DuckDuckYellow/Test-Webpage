@@ -797,6 +797,127 @@
                             </div>
                             {% endfor %}
                         </div>
+
+                        <!-- Best XI Toggle Button -->
+                        <div class="mt-3">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#bestXI-{{ loop.index }}"
+                                    aria-expanded="false">
+                                <i class="bi bi-people-fill"></i> Show Best XI
+                            </button>
+                        </div>
+
+                        <!-- Best XI Collapse Section -->
+                        <div class="collapse mt-3" id="bestXI-{{ loop.index }}">
+                            {% if formation.best_xi %}
+                            <!-- Starting XI - Pitch Visualization -->
+                            <div class="card border-success">
+                                <div class="card-header py-2 bg-success bg-opacity-10">
+                                    <strong><i class="bi bi-trophy-fill text-success"></i> Starting XI</strong>
+                                    <span class="badge bg-dark float-end">
+                                        Quality: {{ formation.best_xi.total_quality_score|round|int }}
+                                    </span>
+                                </div>
+                                <div class="card-body p-2">
+                                    <!-- Pitch Container -->
+                                    <div class="pitch-container position-relative mx-auto" style="max-width: 500px; aspect-ratio: 3/4; background: linear-gradient(to bottom, #2d5a27 0%, #3d7a37 50%, #2d5a27 100%); border-radius: 8px; border: 3px solid #fff;">
+                                        <!-- Pitch markings -->
+                                        <div class="pitch-markings position-absolute w-100 h-100" style="pointer-events: none;">
+                                            <!-- Center circle -->
+                                            <div class="position-absolute" style="width: 80px; height: 80px; border: 2px solid rgba(255,255,255,0.5); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
+                                            <!-- Halfway line -->
+                                            <div class="position-absolute" style="width: 100%; height: 2px; background: rgba(255,255,255,0.5); top: 50%;"></div>
+                                            <!-- Penalty area (top) -->
+                                            <div class="position-absolute" style="width: 60%; height: 15%; border: 2px solid rgba(255,255,255,0.5); border-top: none; top: 0; left: 20%;"></div>
+                                            <!-- Penalty area (bottom) -->
+                                            <div class="position-absolute" style="width: 60%; height: 15%; border: 2px solid rgba(255,255,255,0.5); border-bottom: none; bottom: 0; left: 20%;"></div>
+                                        </div>
+
+                                        <!-- Players positioned by formation -->
+                                        {% for pos in formation.best_xi.get_pitch_positions() %}
+                                        <div class="position-absolute text-center xi-player-slot"
+                                             draggable="true"
+                                             data-formation-idx="{{ loop.index0 }}"
+                                             data-player-name="{{ pos.player_analysis.player.name }}"
+                                             data-position="{{ pos.assigned_position.value }}"
+                                             data-role="{{ pos.assigned_role }}"
+                                             data-score="{{ pos.position_score }}"
+                                             data-verdict="{{ pos.player_analysis.verdict.name }}"
+                                             data-slot-type="xi"
+                                             data-slot-x="{{ pos.x }}"
+                                             data-slot-y="{{ pos.y }}"
+                                             style="left: {{ pos.x }}%; top: {{ pos.y }}%; transform: translate(-50%, -50%); width: 80px; cursor: grab;">
+                                            <div class="badge bg-{{ pos.player_analysis.get_verdict_color() }} rounded-circle mx-auto mb-1 player-badge" style="width: 36px; height: 36px; line-height: 32px; font-size: 0.7rem;">
+                                                {{ pos.assigned_position.value }}
+                                            </div>
+                                            <div class="bg-white bg-opacity-90 rounded px-1 py-0 player-label" style="font-size: 0.65rem;">
+                                                <div class="fw-bold text-truncate player-name">{{ pos.player_analysis.player.name.split(' ')[-1] }}</div>
+                                                <div class="text-muted player-role" style="font-size: 0.55rem;">{{ pos.role_display }}</div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bench - Compact List with Gap Warnings -->
+                            <div class="card bg-light mt-2">
+                                <div class="card-header py-2">
+                                    <strong><i class="bi bi-people"></i> Bench ({{ formation.best_xi.bench|length }})</strong>
+                                    {% if formation.best_xi.bench_gaps %}
+                                    <span class="badge bg-warning text-dark float-end">
+                                        <i class="bi bi-exclamation-triangle"></i> {{ formation.best_xi.bench_gaps|length }} gap(s)
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                <div class="card-body p-2">
+                                    <div class="d-flex flex-wrap gap-2 bench-container">
+                                        {# Show filled bench slots #}
+                                        {% for assignment in formation.best_xi.bench %}
+                                        <div class="d-flex align-items-center bg-white rounded border px-2 py-1 bench-player-slot"
+                                             draggable="true"
+                                             data-bench-idx="{{ loop.index0 }}"
+                                             data-player-name="{{ assignment.player_analysis.player.name }}"
+                                             data-position="{{ assignment.assigned_position.value }}"
+                                             data-role="{{ assignment.assigned_role }}"
+                                             data-score="{{ assignment.position_score }}"
+                                             data-verdict="{{ assignment.player_analysis.verdict.name }}"
+                                             data-slot-type="bench"
+                                             title="{{ assignment.get_role_display_name() }}"
+                                             style="cursor: grab;">
+                                            <span class="badge bg-{{ assignment.player_analysis.get_verdict_color() }} me-1 player-badge" style="font-size: 0.65rem;">
+                                                {{ assignment.assigned_position.value }}
+                                            </span>
+                                            <span class="small text-truncate player-name" style="max-width: 100px;">
+                                                {{ assignment.player_analysis.player.name.split(' ')[-1] }}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+
+                                        {# Show empty slots for unfilled mandatory positions (recruitment warnings) #}
+                                        {% for gap in formation.best_xi.bench_gaps %}
+                                        {% for i in range(gap.count_missing) %}
+                                        <div class="d-flex align-items-center rounded px-2 py-1" style="border: 2px dashed #dc3545; background: rgba(220, 53, 69, 0.1);">
+                                            <span class="badge bg-danger me-1" style="font-size: 0.65rem;">
+                                                {{ gap.group }}
+                                            </span>
+                                            <span class="small text-danger">
+                                                {{ gap.display_name }}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-triangle"></i> Unable to generate Best XI
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
                     {% endfor %}
 
@@ -877,6 +998,58 @@
     /* Hover effect on player row */
     .player-row:hover {
         background-color: rgba(0,0,0,0.02);
+    }
+
+    /* Best XI Drag-and-Drop Styles */
+    .xi-player-slot.dragging,
+    .bench-player-slot.dragging {
+        opacity: 0.5;
+        cursor: grabbing !important;
+    }
+
+    .xi-player-slot.drag-over,
+    .bench-player-slot.drag-over {
+        transform: translate(-50%, -50%) scale(1.1);
+        box-shadow: 0 0 15px rgba(13, 110, 253, 0.7);
+        z-index: 100;
+    }
+
+    .bench-player-slot.drag-over {
+        transform: scale(1.05);
+        box-shadow: 0 0 10px rgba(13, 110, 253, 0.7);
+    }
+
+    .xi-player-slot:hover,
+    .bench-player-slot:hover {
+        z-index: 50;
+    }
+
+    .pitch-container {
+        user-select: none;
+    }
+
+    /* Quality score update animation */
+    .quality-score-updated {
+        animation: scoreFlash 0.6s ease-out;
+    }
+
+    @keyframes scoreFlash {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); background-color: #ffc107; }
+        100% { transform: scale(1); }
+    }
+
+    /* Swap indicator */
+    .swap-indicator {
+        position: fixed;
+        padding: 4px 8px;
+        background: rgba(13, 110, 253, 0.9);
+        color: white;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        pointer-events: none;
+        z-index: 1000;
+        display: none;
     }
 </style>
 
@@ -1137,6 +1310,190 @@
 
         // Call initially to ensure tooltips work
         reinitializeTooltips();
+
+        // ==================== BEST XI DRAG AND DROP ====================
+        initBestXIDragAndDrop();
+
+        function initBestXIDragAndDrop() {
+            // Find all Best XI sections
+            document.querySelectorAll('[id^="bestXI-"]').forEach(section => {
+                const pitchContainer = section.querySelector('.pitch-container');
+                const benchContainer = section.querySelector('.bench-container');
+                const qualityBadge = section.querySelector('.badge.bg-dark');
+
+                if (!pitchContainer || !benchContainer) return;
+
+                let draggedElement = null;
+                let draggedData = null;
+
+                // Get all draggable elements in this section
+                const getAllDraggables = () => [
+                    ...section.querySelectorAll('.xi-player-slot'),
+                    ...section.querySelectorAll('.bench-player-slot')
+                ];
+
+                // Calculate total score for XI players
+                const calculateTotalScore = () => {
+                    let total = 0;
+                    section.querySelectorAll('.xi-player-slot').forEach(slot => {
+                        total += parseFloat(slot.dataset.score) || 0;
+                    });
+                    return Math.round(total);
+                };
+
+                // Update quality badge with animation
+                const updateQualityBadge = () => {
+                    if (!qualityBadge) return;
+                    const newScore = calculateTotalScore();
+                    qualityBadge.textContent = `Quality: ${newScore}`;
+                    qualityBadge.classList.add('quality-score-updated');
+                    setTimeout(() => qualityBadge.classList.remove('quality-score-updated'), 600);
+                };
+
+                // Swap player data between two slots
+                const swapPlayers = (slot1, slot2) => {
+                    // Store slot1 data
+                    const slot1Data = {
+                        playerName: slot1.dataset.playerName,
+                        position: slot1.dataset.position,
+                        role: slot1.dataset.role,
+                        score: slot1.dataset.score,
+                        verdict: slot1.dataset.verdict,
+                        displayName: slot1.querySelector('.player-name')?.textContent.trim(),
+                        roleDisplay: slot1.querySelector('.player-role')?.textContent.trim()
+                    };
+
+                    // Store slot2 data
+                    const slot2Data = {
+                        playerName: slot2.dataset.playerName,
+                        position: slot2.dataset.position,
+                        role: slot2.dataset.role,
+                        score: slot2.dataset.score,
+                        verdict: slot2.dataset.verdict,
+                        displayName: slot2.querySelector('.player-name')?.textContent.trim(),
+                        roleDisplay: slot2.querySelector('.player-role')?.textContent.trim()
+                    };
+
+                    // Apply slot2 data to slot1
+                    applyPlayerData(slot1, slot2Data);
+                    // Apply slot1 data to slot2
+                    applyPlayerData(slot2, slot1Data);
+
+                    updateQualityBadge();
+                };
+
+                // Apply player data to a slot
+                const applyPlayerData = (slot, data) => {
+                    slot.dataset.playerName = data.playerName;
+                    slot.dataset.score = data.score;
+                    slot.dataset.verdict = data.verdict;
+
+                    // Update display name
+                    const nameEl = slot.querySelector('.player-name');
+                    if (nameEl) {
+                        nameEl.textContent = data.displayName;
+                    }
+
+                    // Update role display (for XI slots)
+                    const roleEl = slot.querySelector('.player-role');
+                    if (roleEl && data.roleDisplay) {
+                        roleEl.textContent = data.roleDisplay;
+                    }
+
+                    // Update badge color based on verdict
+                    const badge = slot.querySelector('.player-badge');
+                    if (badge) {
+                        badge.className = badge.className.replace(/bg-\w+/, '');
+                        const colorClass = getVerdictColor(data.verdict);
+                        badge.classList.add(colorClass);
+                    }
+
+                    // Update title attribute for bench slots
+                    if (slot.classList.contains('bench-player-slot')) {
+                        slot.title = data.roleDisplay || data.role;
+                    }
+                };
+
+                // Get Bootstrap color class from verdict
+                const getVerdictColor = (verdict) => {
+                    const colors = {
+                        'ELITE': 'bg-success',
+                        'GOOD': 'bg-primary',
+                        'AVERAGE': 'bg-warning',
+                        'POOR': 'bg-danger'
+                    };
+                    return colors[verdict] || 'bg-secondary';
+                };
+
+                // Drag start handler
+                const handleDragStart = (e) => {
+                    draggedElement = e.target.closest('.xi-player-slot, .bench-player-slot');
+                    if (!draggedElement) return;
+
+                    draggedData = {
+                        slotType: draggedElement.dataset.slotType,
+                        playerName: draggedElement.dataset.playerName
+                    };
+
+                    draggedElement.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', draggedElement.dataset.playerName);
+                };
+
+                // Drag end handler
+                const handleDragEnd = (e) => {
+                    if (draggedElement) {
+                        draggedElement.classList.remove('dragging');
+                    }
+                    getAllDraggables().forEach(el => el.classList.remove('drag-over'));
+                    draggedElement = null;
+                    draggedData = null;
+                };
+
+                // Drag over handler
+                const handleDragOver = (e) => {
+                    e.preventDefault();
+                    const target = e.target.closest('.xi-player-slot, .bench-player-slot');
+                    if (target && target !== draggedElement) {
+                        e.dataTransfer.dropEffect = 'move';
+                        target.classList.add('drag-over');
+                    }
+                };
+
+                // Drag leave handler
+                const handleDragLeave = (e) => {
+                    const target = e.target.closest('.xi-player-slot, .bench-player-slot');
+                    if (target) {
+                        target.classList.remove('drag-over');
+                    }
+                };
+
+                // Drop handler
+                const handleDrop = (e) => {
+                    e.preventDefault();
+                    const target = e.target.closest('.xi-player-slot, .bench-player-slot');
+
+                    if (!target || !draggedElement || target === draggedElement) return;
+
+                    target.classList.remove('drag-over');
+
+                    // Perform the swap
+                    swapPlayers(draggedElement, target);
+
+                    // Reinitialize tooltips for bench players
+                    reinitializeTooltips();
+                };
+
+                // Attach event listeners to all draggable elements
+                getAllDraggables().forEach(el => {
+                    el.addEventListener('dragstart', handleDragStart);
+                    el.addEventListener('dragend', handleDragEnd);
+                    el.addEventListener('dragover', handleDragOver);
+                    el.addEventListener('dragleave', handleDragLeave);
+                    el.addEventListener('drop', handleDrop);
+                });
+            });
+        }
     });
 </script>
 {% endif %}

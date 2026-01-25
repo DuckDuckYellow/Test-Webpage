@@ -129,3 +129,7 @@ class SquadAnalysisManager:
     def get_formation_suggestions(self, result: SquadAnalysisResult) -> List[Dict]:
         """Wrapper for formation suggestions."""
         return self.audit_service.suggest_formations(result, top_n=3)
+
+    def get_formation_suggestions_with_xi(self, result: SquadAnalysisResult) -> List[Dict]:
+        """Get formation suggestions with best XI for each."""
+        return self.audit_service.suggest_formations_with_xi(result, top_n=3)

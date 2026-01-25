@@ -317,3 +317,139 @@ class SquadAnalysisResult:
 
     def get_sorted_by_value(self) -> List[PlayerAnalysis]:
         return sorted(self.player_analyses, key=lambda x: x.value_score, reverse=True)
+
+
+# Role code to display name mapping for Best XI feature
+ROLE_DISPLAY_NAMES = {
+    'GK': 'Goalkeeper',
+    'CB-STOPPER': 'Stopper',
+    'BCB': 'Ball-Playing CB',
+    'FB': 'Full-Back',
+    'WB': 'Wing-Back',
+    'MD': 'Destroyer',
+    'MC': 'Creator',
+    'AM(C)': 'Playmaker',
+    'WAP': 'Wide Provider',
+    'WAS': 'Inside Forward',
+    'ST-PROVIDER': 'Target Forward',
+    'ST-GS': 'Adv. Forward'
+}
+
+
+@dataclass
+class PlayerAssignment:
+    """Represents a player assigned to a specific formation slot."""
+    player_analysis: PlayerAnalysis
+    assigned_position: PositionCategory
+    assigned_role: str           # e.g., "CB-STOPPER", "WB"
+    position_score: float        # Role score for this position
+    is_natural: bool            # True if player's primary position
+
+    def get_role_display_name(self) -> str:
+        """Get user-friendly role name."""
+        return ROLE_DISPLAY_NAMES.get(self.assigned_role, self.assigned_role)
+
+
+@dataclass
+class BenchGap:
+    """Represents a missing mandatory bench position."""
+    group: str           # e.g., "GK", "DEF", "MID"
+    display_name: str    # e.g., "No Backup GK Available"
+    count_missing: int   # How many slots couldn't be filled
+
+
+@dataclass
+class FormationXI:
+    """Complete XI selection for a formation."""
+    formation_name: str
+    starting_xi: Dict[PositionCategory, List[PlayerAssignment]]
+    bench: List[PlayerAssignment]
+    bench_gaps: List[BenchGap]
+    total_quality_score: float
+
+    # Pitch layouts: x (0-100 left-right), y (0-100 top-bottom, GK at bottom)
+    FORMATION_LAYOUTS: Dict[str, Dict[str, List[tuple]]] = field(default_factory=lambda: {
+        "4-2-3-1 DM AM Wide": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(35, 55), (65, 55)], "AM": [(50, 35)], "W": [(15, 28), (85, 28)], "ST": [(50, 10)]
+        },
+        "4-3-3 DM Wide": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "W": [(15, 25), (85, 25)], "ST": [(50, 10)]
+        },
+        "4-3-2-1 DM AM Narrow": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "AM": [(35, 28), (65, 28)], "ST": [(50, 10)]
+        },
+        "5-2-2-1 DM AM": {
+            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
+            "DM": [(35, 50), (65, 50)], "AM": [(35, 30), (65, 30)], "ST": [(50, 10)]
+        },
+        "5-2-3 DM Wide": {
+            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
+            "DM": [(35, 50), (65, 50)], "W": [(20, 25), (80, 25)], "ST": [(50, 10)]
+        },
+        "4-4-2": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "CM": [(35, 50), (65, 50)], "W": [(12, 45), (88, 45)], "ST": [(35, 15), (65, 15)]
+        },
+        "4-2-4 DM Wide": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(35, 55), (65, 55)], "W": [(15, 25), (85, 25)], "ST": [(35, 10), (65, 10)]
+        },
+        "4-4-2 Diamond Narrow": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(50, 58)], "CM": [(30, 45), (70, 45)], "AM": [(50, 32)], "ST": [(35, 12), (65, 12)]
+        },
+        "4-2-2-2 DM AM Narrow": {
+            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+            "DM": [(35, 55), (65, 55)], "AM": [(35, 35), (65, 35)], "ST": [(35, 12), (65, 12)]
+        },
+        "5-3-2 DM WB": {
+            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 60), (92, 60)],
+            "DM": [(50, 50)], "CM": [(30, 40), (70, 40)], "ST": [(35, 12), (65, 12)]
+        },
+        "3-4-3": {
+            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(10, 55), (90, 55)],
+            "CM": [(35, 45), (65, 45)], "W": [(18, 22), (82, 22)], "ST": [(50, 10)]
+        }
+    })
+
+    def get_xi_as_list(self) -> List[PlayerAssignment]:
+        """Flatten starting XI ordered by position (GK→ST)."""
+        position_order = [
+            PositionCategory.GK, PositionCategory.CB, PositionCategory.FB,
+            PositionCategory.DM, PositionCategory.CM, PositionCategory.AM,
+            PositionCategory.W, PositionCategory.ST
+        ]
+        result = []
+        for pos in position_order:
+            if pos in self.starting_xi:
+                result.extend(self.starting_xi[pos])
+        return result
+
+    def get_pitch_positions(self) -> List[Dict]:
+        """Return assignments with x,y pitch coordinates for visualization."""
+        layout = self.FORMATION_LAYOUTS.get(self.formation_name, {})
+        result = []
+        position_indices = {}
+
+        for assignment in self.get_xi_as_list():
+            pos_key = assignment.assigned_position.value
+            idx = position_indices.get(pos_key, 0)
+            coords = layout.get(pos_key, [(50, 50)])
+
+            x, y = coords[idx] if idx < len(coords) else (50, 50)
+            result.append({
+                'assignment': assignment,
+                'player_analysis': assignment.player_analysis,
+                'assigned_position': assignment.assigned_position,
+                'assigned_role': assignment.assigned_role,
+                'role_display': assignment.get_role_display_name(),
+                'position_score': assignment.position_score,
+                'x': x,
+                'y': y
+            })
+            position_indices[pos_key] = idx + 1
+
+        return result

@@ -11,11 +11,27 @@ from models.squad_audit import (
     SquadAnalysisResult,
     StatusFlag,
     PerformanceVerdict,
-    Recommendation
+    Recommendation,
+    PlayerAssignment,
+    BenchGap,
+    FormationXI
 )
 from models.constants import PositionCategory, POSITION_METRICS, METRIC_NAMES
 from models.league_baseline import LeagueWageBaseline, LeagueBaselineCollection
 from services.player_evaluator_service import PlayerEvaluatorService
+
+# Position to roles mapping for Best XI selection
+POSITION_TO_ROLES = {
+    PositionCategory.GK: ['GK'],
+    PositionCategory.CB: ['CB-STOPPER', 'BCB'],
+    PositionCategory.FB: ['FB', 'WB'],
+    PositionCategory.DM: ['MD'],
+    PositionCategory.CM: ['MC', 'MD'],
+    PositionCategory.AM: ['AM(C)'],
+    PositionCategory.W: ['WAP', 'WAS'],
+    PositionCategory.ST: ['ST-GS', 'ST-PROVIDER']
+}
+
 
 class SquadAuditService:
     """Service for analyzing squad performance and value."""
@@ -560,3 +576,195 @@ class SquadAuditService:
         # Sort by score (highest first) - Star Power Weighting prioritizes elite players
         scored_formations.sort(key=lambda x: x['score'], reverse=True)
         return scored_formations[:top_n]
+
+    def _get_position_score(self, player_analysis: PlayerAnalysis,
+                            target_position: PositionCategory) -> Tuple[float, str]:
+        """Get best role score for a player in a specific position slot."""
+        relevant_roles = POSITION_TO_ROLES.get(target_position, [])
+        best_score = 0.0
+        best_role = ""
+
+        for role_score in player_analysis.player.all_role_scores:
+            if role_score.role in relevant_roles and role_score.overall_score > best_score:
+                best_score = role_score.overall_score
+                best_role = role_score.role
+
+        return best_score, best_role
+
+    def generate_best_xi(self, formation: Dict,
+                         result: SquadAnalysisResult) -> FormationXI:
+        """Generate optimal XI and bench for a formation."""
+        positions = formation['positions']
+        used_players = set()
+        starting_xi = {}
+        total_score = 0.0
+
+        # Sort positions by scarcity (fewest available players first)
+        def count_available(pos):
+            return len([a for a in result.player_analyses
+                       if pos in self.player_evaluator.get_all_possible_positions(a.player)])
+
+        sorted_positions = sorted(positions.items(), key=lambda x: count_available(x[0]))
+
+        for position, slots_needed in sorted_positions:
+            starting_xi[position] = []
+
+            # Get candidates who can play this position and aren't used
+            candidates = [
+                a for a in result.player_analyses
+                if position in self.player_evaluator.get_all_possible_positions(a.player)
+                and a.player.name not in used_players
+            ]
+
+            # Score and sort candidates
+            scored = []
+            for candidate in candidates:
+                pos_score, role = self._get_position_score(candidate, position)
+                tier_priority = {PerformanceVerdict.ELITE: 4, PerformanceVerdict.GOOD: 3,
+                               PerformanceVerdict.AVERAGE: 2, PerformanceVerdict.POOR: 1}
+                scored.append((candidate, pos_score, role, tier_priority.get(candidate.verdict, 0)))
+
+            scored.sort(key=lambda x: (x[3], x[1]), reverse=True)
+
+            # Select top N
+            for i in range(min(slots_needed, len(scored))):
+                candidate, pos_score, role, _ = scored[i]
+                is_natural = self.player_evaluator.get_position_category(candidate.player) == position
+                assignment = PlayerAssignment(
+                    player_analysis=candidate,
+                    assigned_position=position,
+                    assigned_role=role or position.value,
+                    position_score=pos_score,
+                    is_natural=is_natural
+                )
+                starting_xi[position].append(assignment)
+                used_players.add(candidate.player.name)
+                total_score += pos_score
+
+        # Generate bench with gap tracking
+        bench, bench_gaps = self._generate_bench(result, used_players)
+
+        return FormationXI(
+            formation_name=formation['name'],
+            starting_xi=starting_xi,
+            bench=bench,
+            bench_gaps=bench_gaps,
+            total_quality_score=total_score
+        )
+
+    def _generate_bench(self, result: SquadAnalysisResult,
+                        used_players: set) -> Tuple[List[PlayerAssignment], List[BenchGap]]:
+        """Generate balanced 11-player bench with guaranteed positional coverage.
+
+        Returns:
+            Tuple of (bench assignments, list of unfilled mandatory gaps)
+        """
+        remaining = [a for a in result.player_analyses if a.player.name not in used_players]
+
+        # Sort by verdict tier then best_role score
+        tier_priority = {PerformanceVerdict.ELITE: 4, PerformanceVerdict.GOOD: 3,
+                        PerformanceVerdict.AVERAGE: 2, PerformanceVerdict.POOR: 1}
+        remaining.sort(key=lambda a: (
+            tier_priority.get(a.verdict, 0),
+            a.player.best_role.overall_score if a.player.best_role else 0
+        ), reverse=True)
+
+        def create_assignment(analysis):
+            pos = self.player_evaluator.get_position_category(analysis.player)
+            role = analysis.player.best_role.role if analysis.player.best_role else pos.value
+            score = analysis.player.best_role.overall_score if analysis.player.best_role else 0
+            return PlayerAssignment(
+                player_analysis=analysis,
+                assigned_position=pos,
+                assigned_role=role,
+                position_score=score,
+                is_natural=True
+            )
+
+        # Define position groups for bench balance
+        POSITION_GROUPS = {
+            'GK': [PositionCategory.GK],
+            'DEF': [PositionCategory.CB, PositionCategory.FB],
+            'MID': [PositionCategory.DM, PositionCategory.CM],
+            'AM': [PositionCategory.AM, PositionCategory.W],
+            'ST': [PositionCategory.ST]
+        }
+
+        # Minimum coverage requirements: 1 GK, 2 DEF, 1 MID, 2 AM, 1 ST = 7, then 4 flex
+        BENCH_MINIMUMS = {'GK': 1, 'DEF': 2, 'MID': 1, 'AM': 2, 'ST': 1}
+
+        # Display names for gap warnings
+        GAP_DISPLAY_NAMES = {
+            'GK': 'Backup GK',
+            'DEF': 'Backup Defender',
+            'MID': 'Backup Midfielder',
+            'AM': 'Backup Attacker',
+            'ST': 'Backup Striker'
+        }
+
+        bench = []
+        bench_gaps = []
+        used_in_bench = set()
+
+        # Phase 1: Fill minimum coverage for each group, track gaps
+        for group, min_count in BENCH_MINIMUMS.items():
+            group_positions = POSITION_GROUPS[group]
+            group_candidates = [
+                a for a in remaining
+                if self.player_evaluator.get_position_category(a.player) in group_positions
+                and a.player.name not in used_in_bench
+            ]
+
+            filled = 0
+            for i in range(min(min_count, len(group_candidates))):
+                bench.append(create_assignment(group_candidates[i]))
+                used_in_bench.add(group_candidates[i].player.name)
+                filled += 1
+
+            # Track unfilled mandatory slots
+            if filled < min_count:
+                bench_gaps.append(BenchGap(
+                    group=group,
+                    display_name=f"No {GAP_DISPLAY_NAMES[group]} Available",
+                    count_missing=min_count - filled
+                ))
+
+        # Phase 2: Fill remaining slots (up to 11) with best available
+        for analysis in remaining:
+            if len(bench) >= 11:
+                break
+            if analysis.player.name not in used_in_bench:
+                bench.append(create_assignment(analysis))
+                used_in_bench.add(analysis.player.name)
+
+        return bench[:11], bench_gaps
+
+    def suggest_formations_with_xi(self, result: SquadAnalysisResult,
+                                   top_n: int = 3) -> List[Dict]:
+        """Get formation suggestions with best XI for each."""
+        FORMATIONS = [
+            {"name": "4-2-3-1 DM AM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 1, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-3-3 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-3-2-1 DM AM Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.AM: 2, PositionCategory.ST: 1}},
+            {"name": "5-2-2-1 DM AM", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 2, PositionCategory.ST: 1}},
+            {"name": "5-2-3 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}},
+            {"name": "4-4-2", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 2}},
+            {"name": "4-2-4 DM Wide", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.W: 2, PositionCategory.ST: 2}},
+            {"name": "4-4-2 Diamond Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.AM: 1, PositionCategory.ST: 2}},
+            {"name": "4-2-2-2 DM AM Narrow", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 2, PositionCategory.FB: 2, PositionCategory.DM: 2, PositionCategory.AM: 2, PositionCategory.ST: 2}},
+            {"name": "5-3-2 DM WB", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.DM: 1, PositionCategory.CM: 2, PositionCategory.ST: 2}},
+            {"name": "3-4-3", "positions": {PositionCategory.GK: 1, PositionCategory.CB: 3, PositionCategory.FB: 2, PositionCategory.CM: 2, PositionCategory.W: 2, PositionCategory.ST: 1}}
+        ]
+
+        formations = self.suggest_formations(result, top_n)
+
+        for formation_result in formations:
+            # Find matching formation definition
+            formation_def = next(
+                (f for f in FORMATIONS if f['name'] == formation_result['name']),
+                None
+            )
+            if formation_def:
+                formation_result['best_xi'] = self.generate_best_xi(formation_def, result)
+
+        return formations

@@ -242,7 +242,7 @@ def squad_audit_tracker():
 
     formation_suggestions = None
     if analysis_result:
-        formation_suggestions = squad_manager.get_formation_suggestions(analysis_result)
+        formation_suggestions = squad_manager.get_formation_suggestions_with_xi(analysis_result)
 
     return render_template(
         "projects/squad_audit_tracker.html",
