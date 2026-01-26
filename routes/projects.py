@@ -23,7 +23,132 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
 
     Returns OrderedDict with country as key and list of (division_name, is_low_sample) tuples.
     """
-    # Common country prefixes in division names
+    # Exact match mappings for specific league names
+    exact_matches = {
+        # England
+        'Sky Bet Championship': 'England',
+        'Sky Bet League One': 'England',
+        'Sky Bet League Two': 'England',
+        'Vanarama National League': 'England',
+        'Vanarama National League North': 'England',
+        'Vanarama National League South': 'England',
+        # France
+        'Ligue 1 Uber Eats': 'France',
+        'Ligue 2 BKT': 'France',
+        # Germany
+        'Bundesliga': 'Germany',
+        'Bundesliga 2': 'Germany',
+        '2. Division': 'Germany',
+        '3. Liga': 'Germany',
+        # Netherlands
+        'Eredivisie': 'Netherlands',
+        'Keuken Kampioen Divisie': 'Netherlands',
+        # Belgium
+        'Jupiler Pro League': 'Belgium',
+        'Nationale 1 - ACFF': 'Belgium',
+        'Nationale 1 - VV': 'Belgium',
+        # Scotland
+        'cinch Premiership': 'Scotland',
+        'cinch Championship': 'Scotland',
+        # Poland
+        'PKO Bank Polski Ekstraklasa': 'Poland',
+        # Saudi Arabia
+        'Saudi Professional League': 'Saudi Arabia',
+        'Saudi First Division League': 'Saudi Arabia',
+        # Japan
+        'J1 League': 'Japan',
+        'J2 League': 'Japan',
+        # Australia
+        'Isuzu UTE A-League': 'Australia',
+        # Denmark
+        '3F Superliga': 'Denmark',
+        'NordicBet Liga': 'Denmark',
+        # Iran
+        'Persian Gulf Premier League': 'Iran',
+        # Morocco
+        'Botola Pro 1': 'Morocco',
+        # Northern Ireland
+        'Sports Direct Premiership': 'Northern Ireland',
+        # Qatar
+        'Qatar Stars League': 'Qatar',
+        'Qatar League': 'Qatar',
+        # South Korea
+        'Hana 1Q K LEAGUE 1': 'South Korea',
+        # UAE
+        'UAE Professional League': 'UAE',
+        'UAE First Division': 'UAE',
+        # USA / Canada
+        'Major League Soccer': 'USA',
+        'MLS Next Pro Eastern Conference': 'USA',
+        'USSL Championship Eastern Conference': 'USA',
+        'USSL Championship Western Conference': 'USA',
+        # Other specific leagues
+        'Hong Kong Premier League': 'Hong Kong',
+        'Thai League': 'Thailand',
+        'Malaysian Super League': 'Malaysia',
+        'Singaporean Premier League': 'Singapore',
+    }
+
+    # League tier priorities (lower number = higher tier, appears first)
+    # Leagues not listed default to tier 50
+    league_tiers = {
+        # Germany
+        'Bundesliga': 1,
+        'Bundesliga 2': 2,
+        '3. Liga': 3,
+        # England
+        'English Premier Division': 1,
+        'Sky Bet Championship': 2,
+        'Sky Bet League One': 3,
+        'Sky Bet League Two': 4,
+        'Vanarama National League': 5,
+        'Vanarama National League North': 6,
+        'Vanarama National League South': 6,
+        # France
+        'Ligue 1 Uber Eats': 1,
+        'Ligue 2 BKT': 2,
+        # Spain
+        'Spanish First Division': 1,
+        'Spanish Second Division': 2,
+        # Italy
+        'Italian Serie A': 1,
+        'Italian Serie B': 2,
+        # Netherlands
+        'Eredivisie': 1,
+        'Keuken Kampioen Divisie': 2,
+        # Portugal
+        'Portuguese Premier League': 1,
+        'Portuguese Second League': 2,
+        # Belgium
+        'Jupiler Pro League': 1,
+        # Scotland
+        'cinch Premiership': 1,
+        'cinch Championship': 2,
+        # Poland
+        'PKO Bank Polski Ekstraklasa': 1,
+        'Polish First Division': 2,
+        'Polish Second Division': 3,
+        # Japan
+        'J1 League': 1,
+        'J2 League': 2,
+        # Saudi Arabia
+        'Saudi Professional League': 1,
+        'Saudi First Division League': 2,
+        # Denmark
+        '3F Superliga': 1,
+        'NordicBet Liga': 2,
+        # Qatar
+        'Qatar Stars League': 1,
+        'Qatar League': 2,
+        # UAE
+        'UAE Professional League': 1,
+        'UAE First Division': 2,
+        # USA
+        'Major League Soccer': 1,
+        'MLS Next Pro Eastern Conference': 2,
+    }
+
+    # Prefix-based country patterns (for leagues following naming conventions)
     country_patterns = [
         # Multi-word countries first
         ('South Korean', 'South Korea'),
@@ -121,12 +246,21 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
     grouped = {}
 
     for division in sorted(divisions):
-        country = 'Other'
+        country = None
 
-        for prefix, country_name in country_patterns:
-            if division.startswith(prefix):
-                country = country_name
-                break
+        # First check exact matches
+        if division in exact_matches:
+            country = exact_matches[division]
+        else:
+            # Then check prefix patterns
+            for prefix, country_name in country_patterns:
+                if division.startswith(prefix):
+                    country = country_name
+                    break
+
+        # Default to 'Other' if no match
+        if not country:
+            country = 'Other'
 
         # Check for low sample size
         is_low_sample = False
@@ -138,15 +272,21 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
         grouped[country].append((division, is_low_sample))
 
     # Sort countries alphabetically, but put major leagues first
-    priority_countries = ['England', 'Spain', 'Germany', 'Italy', 'France']
+    priority_countries = ['England', 'Spain', 'Germany', 'Italy', 'France', 'Netherlands', 'Portugal', 'Belgium', 'Scotland']
+
+    def sort_key(item):
+        """Sort by: low_sample flag, then league tier, then alphabetically."""
+        division_name, is_low_sample = item
+        tier = league_tiers.get(division_name, 50)  # Default tier 50 for unlisted leagues
+        return (is_low_sample, tier, division_name)
 
     sorted_grouped = OrderedDict()
     for country in priority_countries:
         if country in grouped:
-            sorted_grouped[country] = sorted(grouped.pop(country))
+            sorted_grouped[country] = sorted(grouped.pop(country), key=sort_key)
 
     for country in sorted(grouped.keys()):
-        sorted_grouped[country] = sorted(grouped[country])
+        sorted_grouped[country] = sorted(grouped[country], key=sort_key)
 
     return sorted_grouped
 
