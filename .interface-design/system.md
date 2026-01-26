@@ -38,7 +38,7 @@ Warm, analytical, serious. Like a well-organized scouting binder.
 
   /* Semantic - Traffic lights */
   --verdict-elite: #2d6a4f;
-  --verdict-good: #40916c;
+  --verdict-good: #2a7d8c;
   --verdict-average: #cc8b00;
   --verdict-poor: #9d4444;
 }
