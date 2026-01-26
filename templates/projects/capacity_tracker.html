@@ -371,44 +371,44 @@
     }
 
     .capacity-available {
-        background-color: #28a745;
+        background-color: var(--verdict-elite);
         color: white;
     }
 
     .capacity-near-capacity {
-        background-color: #ffc107;
-        color: #333;
+        background-color: var(--verdict-average);
+        color: white;
     }
 
     .capacity-at-capacity {
-        background-color: #dc3545;
+        background-color: var(--verdict-poor);
         color: white;
     }
 
     .capacity-overloaded {
-        background-color: #8b0000;
+        background-color: #6b2c2c;
         color: white;
     }
 
     /* Team Health Indicators */
     .team-health-healthy {
-        background-color: #d4edda;
-        border: 2px solid #28a745;
+        background-color: rgba(45, 106, 79, 0.15);
+        border: 2px solid var(--verdict-elite);
     }
 
     .team-health-underutilized {
-        background-color: #d1ecf1;
-        border: 2px solid #17a2b8;
+        background-color: rgba(64, 145, 108, 0.15);
+        border: 2px solid var(--verdict-good);
     }
 
     .team-health-warning {
-        background-color: #fff3cd;
-        border: 2px solid #ffc107;
+        background-color: rgba(204, 139, 0, 0.15);
+        border: 2px solid var(--verdict-average);
     }
 
     .team-health-critical {
-        background-color: #f8d7da;
-        border: 2px solid #dc3545;
+        background-color: rgba(157, 68, 68, 0.15);
+        border: 2px solid var(--verdict-poor);
     }
 
     /* Form styling */
@@ -418,7 +418,7 @@
 
     /* Accordion enhancements */
     .accordion-button:not(.collapsed) {
-        background-color: #f8f9fa;
+        background-color: var(--paper-inset);
     }
 
     /* Responsive */

@@ -441,7 +441,7 @@
                                                             {% set tier_color = {'ELITE': 'success', 'GOOD': 'info', 'AVERAGE': 'warning', 'POOR': 'danger', 'CRITICAL': 'dark'}.get(metric_data.tier, 'secondary') %}
                                                             <div class="kpi-bar-row d-flex align-items-center mb-2">
                                                                 <div class="kpi-label small" style="width: 100px;">{{ metric_name.replace('_90', '/90').replace('_pct', '%').replace('_', ' ').title() }}</div>
-                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; border-radius: 4px; overflow: hidden;">
                                                                     <div class="kpi-bar-fill bg-{{ tier_color }}" data-width="{{ bar_width }}" style="height: 100%; width: 0; border-radius: 4px;"></div>
                                                                 </div>
                                                                 <span class="badge bg-{{ tier_color }} kpi-tier" style="width: 60px;">{{ metric_data.tier }}</span>
@@ -462,7 +462,7 @@
                                                             {% set tier_color = {'ELITE': 'success', 'GOOD': 'info', 'AVERAGE': 'warning', 'POOR': 'danger', 'CRITICAL': 'dark'}.get(metric_data.tier, 'secondary') %}
                                                             <div class="kpi-bar-row d-flex align-items-center mb-2">
                                                                 <div class="kpi-label small" style="width: 100px;">{{ metric_name.replace('_90', '/90').replace('_pct', '%').replace('_', ' ').title() }}</div>
-                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; background: #e9ecef; border-radius: 4px; overflow: hidden;">
+                                                                <div class="kpi-bar-container flex-grow-1 mx-2" style="height: 12px; border-radius: 4px; overflow: hidden;">
                                                                     <div class="kpi-bar-fill bg-{{ tier_color }}" data-width="{{ bar_width }}" style="height: 100%; width: 0; border-radius: 4px;"></div>
                                                                 </div>
                                                                 <span class="badge bg-{{ tier_color }} kpi-tier" style="width: 60px;">{{ metric_data.tier }}</span>
@@ -933,7 +933,7 @@
                                         {# Show empty slots for unfilled mandatory positions (recruitment warnings) #}
                                         {% for gap in formation.best_xi.bench_gaps %}
                                         {% for i in range(gap.count_missing) %}
-                                        <div class="d-flex align-items-center rounded px-2 py-1" style="border: 2px dashed #dc3545; background: rgba(220, 53, 69, 0.1);">
+                                        <div class="d-flex align-items-center rounded px-2 py-1 bench-gap-slot" style="border: 2px dashed var(--verdict-poor); background: rgba(157, 68, 68, 0.1);">
                                             <span class="badge bg-danger me-1" style="font-size: 0.65rem;">
                                                 {{ gap.group }}
                                             </span>
@@ -1005,7 +1005,11 @@
     /* KPI Bar Animations */
     .kpi-bar-fill {
         width: 0;
-        transition: width 0.4s ease-out 0.2s; /* 0.2s delay */
+        transition: width 0.4s ease-out 0.2s;
+    }
+
+    .kpi-bar-container {
+        background: var(--rule-light) !important;
     }
 
     /* Desaturated bars for unreliable data */
@@ -1018,7 +1022,7 @@
 
     /* Expand button icon rotation */
     .expand-icon {
-        transition: transform 0.2s ease;
+        transition: transform 0.15s ease;
     }
     .player-group.expanded .expand-icon {
         transform: rotate(90deg);
@@ -1026,12 +1030,13 @@
 
     /* Detail panel styling */
     .detail-panel {
-        border-top: 2px solid #dee2e6;
+        border-top: 1px solid var(--rule);
+        background: var(--paper-inset);
     }
 
     /* Hover effect on player row */
     .player-row:hover {
-        background-color: rgba(0,0,0,0.02);
+        background-color: var(--paper-inset);
     }
 
     /* Best XI Drag-and-Drop Styles */
@@ -1044,13 +1049,13 @@
     .xi-player-slot.drag-over,
     .bench-player-slot.drag-over {
         transform: translate(-50%, -50%) scale(1.1);
-        box-shadow: 0 0 15px rgba(13, 110, 253, 0.7);
+        box-shadow: 0 0 15px rgba(61, 90, 69, 0.6);
         z-index: 100;
     }
 
     .bench-player-slot.drag-over {
         transform: scale(1.05);
-        box-shadow: 0 0 10px rgba(13, 110, 253, 0.7);
+        box-shadow: 0 0 10px rgba(61, 90, 69, 0.6);
     }
 
     .xi-player-slot:hover,
@@ -1069,7 +1074,7 @@
 
     @keyframes scoreFlash {
         0% { transform: scale(1); }
-        50% { transform: scale(1.2); background-color: #ffc107; }
+        50% { transform: scale(1.2); background-color: var(--verdict-average); }
         100% { transform: scale(1); }
     }
 
@@ -1077,9 +1082,9 @@
     .swap-indicator {
         position: fixed;
         padding: 4px 8px;
-        background: rgba(13, 110, 253, 0.9);
+        background: rgba(61, 90, 69, 0.9);
         color: white;
-        border-radius: 4px;
+        border-radius: var(--radius-sm);
         font-size: 0.75rem;
         pointer-events: none;
         z-index: 1000;
@@ -1090,11 +1095,54 @@
     #methodologyExplainer.collapse:not(.show) ~ .card-header .bi-chevron-down,
     .card-header .collapsed .bi-chevron-down {
         transform: rotate(0deg);
-        transition: transform 0.2s ease;
+        transition: transform 0.15s ease;
     }
     .card-header button:not(.collapsed) .bi-chevron-down {
         transform: rotate(180deg);
-        transition: transform 0.2s ease;
+        transition: transform 0.15s ease;
+    }
+
+    /* Stat values should be monospace */
+    .badge.fs-6,
+    .kpi-tier {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Detail panel inner card */
+    .detail-panel .bg-white {
+        background: var(--paper-raised) !important;
+        border-color: var(--rule) !important;
+    }
+
+    /* Table header adjustments */
+    #squadTable th {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: var(--ink-muted);
+    }
+
+    /* Quick stats numbers */
+    .card-body.bg-light h3 {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Out-of-position indicator */
+    .player-label.out-of-position {
+        border: 2px solid var(--verdict-poor) !important;
+    }
+
+    /* Bench and XI slot styling */
+    .bench-player-slot {
+        background: var(--paper-raised);
+        border-color: var(--rule) !important;
+    }
+
+    .bench-gap-slot {
+        border-color: var(--verdict-poor) !important;
     }
 </style>
 
@@ -1816,9 +1864,9 @@
                         const slotPosition = slot.dataset.position;
                         const isOutOfPosition = !canPlayPosition(data.naturalPositions, slotPosition);
                         if (isOutOfPosition) {
-                            labelEl.style.border = '2px solid #dc3545';
+                            labelEl.classList.add('out-of-position');
                         } else {
-                            labelEl.style.border = '';
+                            labelEl.classList.remove('out-of-position');
                         }
                     }
                 };
