@@ -1083,7 +1083,340 @@
         z-index: 1000;
         display: none;
     }
+
+    /* Methodology explainer chevron rotation */
+    #methodologyExplainer.collapse:not(.show) ~ .card-header .bi-chevron-down,
+    .card-header .collapsed .bi-chevron-down {
+        transform: rotate(0deg);
+        transition: transform 0.2s ease;
+    }
+    .card-header button:not(.collapsed) .bi-chevron-down {
+        transform: rotate(180deg);
+        transition: transform 0.2s ease;
+    }
 </style>
+
+<!-- Methodology Explainer Section -->
+{% if analysis_result %}
+<div class="container mt-5 mb-4">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-light py-2">
+            <button class="btn btn-link text-decoration-none text-dark w-100 text-start d-flex justify-content-between align-items-center collapsed"
+                    type="button" data-bs-toggle="collapse" data-bs-target="#methodologyExplainer">
+                <span><i class="bi bi-info-circle me-2"></i><strong>How Are These Metrics Calculated?</strong></span>
+                <i class="bi bi-chevron-down"></i>
+            </button>
+        </div>
+        <div class="collapse" id="methodologyExplainer">
+            <div class="card-body">
+                <!-- Accordion for detailed sections -->
+                <div class="accordion" id="methodologyAccordion">
+
+                    <!-- 1. Overview -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#overviewSection">
+                                <i class="bi bi-lightbulb me-2"></i>Overview: Role-Based Evaluation
+                            </button>
+                        </h2>
+                        <div id="overviewSection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <p>This system evaluates players based on <strong>12 distinct tactical roles</strong> rather than generic position categories. Each player is matched against all roles they could plausibly fill, and their <strong>best-fitting role</strong> determines their overall assessment.</p>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Tier 1: Specialized Roles</h6>
+                                        <ul class="small mb-2">
+                                            <li><strong>GK</strong> - Goalkeeper (shot-stopping, distribution)</li>
+                                            <li><strong>CB-Stopper</strong> - Traditional defender (tackling, aerial)</li>
+                                            <li><strong>BCB</strong> - Ball-playing CB (distribution, possession)</li>
+                                            <li><strong>FB</strong> - Full-back (defensive balance)</li>
+                                            <li><strong>WB</strong> - Wing-back (attacking width)</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted">Tier 2-3: Midfield & Attack</h6>
+                                        <ul class="small mb-2">
+                                            <li><strong>MD</strong> - Defensive midfielder (destroyer)</li>
+                                            <li><strong>MC</strong> - Central midfielder (playmaker)</li>
+                                            <li><strong>AM(C)</strong> - Attacking midfielder (creator)</li>
+                                            <li><strong>WAP</strong> - Winger (provider, crossing)</li>
+                                            <li><strong>WAS</strong> - Inside forward (goalscoring)</li>
+                                            <li><strong>ST-Provider</strong> - Target forward (link play)</li>
+                                            <li><strong>ST-GS</strong> - Advanced forward (finisher)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info small mb-0 mt-2">
+                                    <i class="bi bi-arrow-repeat me-1"></i>
+                                    <strong>Interchangeability:</strong> Roles are grouped by tactical similarity. A player who scores well as a Wing-Back may also fit as a Full-Back or Wide Attacker, and the system tests all viable options.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Metric Thresholds -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#thresholdsSection">
+                                <i class="bi bi-bar-chart me-2"></i>Performance Thresholds (Good / Average / Poor)
+                            </button>
+                        </h2>
+                        <div id="thresholdsSection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <p>Each role has specific <strong>Key Performance Indicators (KPIs)</strong> with three threshold levels that define performance bands. These thresholds are derived from <strong>league-wide statistical analysis</strong>.</p>
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm small">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Band</th>
+                                                <th>Score Range</th>
+                                                <th>Interpretation</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="table-success">
+                                                <td><span class="badge bg-success">ELITE</span></td>
+                                                <td>100-120</td>
+                                                <td>Above "Good" threshold - exceptional performance in this metric</td>
+                                            </tr>
+                                            <tr class="table-primary">
+                                                <td><span class="badge bg-primary">GOOD</span></td>
+                                                <td>70-100</td>
+                                                <td>Between "OK" and "Good" thresholds - solid, reliable output</td>
+                                            </tr>
+                                            <tr class="table-warning">
+                                                <td><span class="badge bg-warning text-dark">AVERAGE</span></td>
+                                                <td>40-70</td>
+                                                <td>Between "Poor" and "OK" thresholds - functional but not standout</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><span class="badge bg-danger">POOR</span></td>
+                                                <td>0-40</td>
+                                                <td>Below "Poor" threshold - significant weakness in this area</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h6 class="mt-3">Example: Center-Back (CB-Stopper) Thresholds</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered small">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Metric</th>
+                                                <th class="text-success">Good</th>
+                                                <th class="text-primary">OK</th>
+                                                <th class="text-danger">Poor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Header Win %</td>
+                                                <td>82%</td>
+                                                <td>72%</td>
+                                                <td>59%</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Tackles per 90</td>
+                                                <td>2.38</td>
+                                                <td>1.29</td>
+                                                <td>0.80</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Interceptions per 90</td>
+                                                <td>3.18</td>
+                                                <td>2.15</td>
+                                                <td>1.36</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="alert alert-secondary small mb-0">
+                                    <i class="bi bi-database me-1"></i>
+                                    <strong>Data Source:</strong> Threshold values are calibrated against large sample data to represent realistic performance bands across divisions. Credit to <strong><a href="https://www.fmstag.com/" target="_blank" class="text-decoration-none">FMStag</a></strong> for the foundational Good/Average/Poor banding methodology.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Weighted Scoring -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#weightingSection">
+                                <i class="bi bi-sliders me-2"></i>Primary vs Secondary KPIs (70/30 Weighting)
+                            </button>
+                        </h2>
+                        <div id="weightingSection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <p>Each role splits its KPIs into two categories with different weights:</p>
+
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <div class="card border-primary">
+                                            <div class="card-body">
+                                                <h6 class="card-title text-primary"><i class="bi bi-star-fill me-1"></i>Primary KPIs (70%)</h6>
+                                                <p class="small mb-0">Role-defining metrics that distinguish this role from others. These are the core competencies - a CB-Stopper <em>must</em> win headers and make tackles.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card border-secondary">
+                                            <div class="card-body">
+                                                <h6 class="card-title text-secondary"><i class="bi bi-star-half me-1"></i>Secondary KPIs (30%)</h6>
+                                                <p class="small mb-0">Supporting attributes that enhance performance but aren't essential. A CB-Stopper with good passing is valuable, but it's not their primary job.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h6>Scoring Formula</h6>
+                                <div class="bg-light p-3 rounded font-monospace small mb-3">
+                                    Overall Score = (Primary Avg × 0.7) + (Secondary Avg × 0.3)
+                                </div>
+
+                                <h6>Why This Matters</h6>
+                                <p class="small mb-0">This weighting ensures a player can't compensate for poor core skills with excellent supporting attributes. A striker with amazing passing but poor finishing will still score lower than one with great finishing and average passing.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Performance Index & Value Score -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#valueSection">
+                                <i class="bi bi-currency-pound me-2"></i>Performance Index & Value Score
+                            </button>
+                        </h2>
+                        <div id="valueSection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-graph-up text-primary me-1"></i>Performance Index (0-120)</h6>
+                                        <p class="small">The weighted overall score from the player's best-fitting role. This represents pure on-pitch output regardless of wages.</p>
+                                        <ul class="small">
+                                            <li><strong>85+</strong> = ELITE tier</li>
+                                            <li><strong>70-84</strong> = GOOD tier</li>
+                                            <li><strong>50-69</strong> = AVERAGE tier</li>
+                                            <li><strong>&lt;50</strong> = POOR tier</li>
+                                        </ul>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6><i class="bi bi-piggy-bank text-success me-1"></i>Value Score</h6>
+                                        <p class="small">Adjusts performance for wages relative to squad average. Identifies players who outperform (or underperform) their salary.</p>
+                                        <div class="bg-light p-2 rounded font-monospace small mb-2">
+                                            Value = Performance ÷ (Wage ÷ Squad Avg Wage)
+                                        </div>
+                                        <p class="small mb-0">A player earning 2× squad average needs 2× the performance to match a player on average wages.</p>
+                                    </div>
+                                </div>
+
+                                <hr>
+
+                                <h6><i class="bi bi-globe me-1"></i>League Value Score (Optional)</h6>
+                                <p class="small mb-2">When you select a division, players are also compared against <strong>league-wide wage averages</strong> for their position. This reveals whether a player is a bargain or overpaid relative to the wider market.</p>
+
+                                <div class="alert alert-success small mb-0">
+                                    <i class="bi bi-tag me-1"></i>
+                                    <strong>League Bargain:</strong> Players with a league value score 30+ points higher than their squad value may be undervalued relative to the market - they're performing above what their wages suggest for that division.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Minutes Thresholds -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#minutesSection">
+                                <i class="bi bi-clock me-2"></i>Minutes Played & Data Reliability
+                            </button>
+                        </h2>
+                        <div id="minutesSection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <p>Per-90 statistics can be misleading for players with limited minutes. The system applies different treatments based on sample size:</p>
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm small">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Minutes</th>
+                                                <th>Treatment</th>
+                                                <th>Rationale</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="table-danger">
+                                                <td><strong>&lt;200</strong></td>
+                                                <td>Hard Floor - "LOW DATA" badge</td>
+                                                <td>Too few minutes for reliable per-90 stats. One good/bad game skews everything.</td>
+                                            </tr>
+                                            <tr class="table-warning">
+                                                <td><strong>200-500</strong></td>
+                                                <td>Soft Floor - Bayesian Average applied</td>
+                                                <td>Stats are blended with squad averages. At 200 mins, 100% squad average; at 500 mins, 100% player stats.</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td><strong>500+</strong></td>
+                                                <td>Full calculation</td>
+                                                <td>Sufficient sample size for reliable per-90 statistics.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <h6>Bayesian Average Formula (200-500 mins)</h6>
+                                <div class="bg-light p-2 rounded font-monospace small mb-2">
+                                    Weight = (Minutes - 200) ÷ 300<br>
+                                    Adjusted Stat = (Player Stat × Weight) + (Squad Avg × (1 - Weight))
+                                </div>
+                                <p class="small mb-0">This "regression to the mean" prevents a player with one brilliant 90-minute performance from appearing elite while protecting genuinely good players with limited opportunities.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Best XI Algorithm -->
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bestXISection">
+                                <i class="bi bi-people me-2"></i>Best XI Selection Algorithm
+                            </button>
+                        </h2>
+                        <div id="bestXISection" class="accordion-collapse collapse" data-bs-parent="#methodologyAccordion">
+                            <div class="accordion-body">
+                                <p>The Best XI is generated using a <strong>greedy assignment algorithm</strong> that prioritizes positional scarcity:</p>
+
+                                <ol class="small">
+                                    <li><strong>Identify formation requirements</strong> (e.g., 4-3-3 needs 1 GK, 2 CB, 2 FB, 3 CM, 3 attackers)</li>
+                                    <li><strong>Order positions by scarcity</strong> - positions with fewer available players are filled first</li>
+                                    <li><strong>For each position</strong>, find the best available player using role evaluation scores</li>
+                                    <li><strong>Mark player as used</strong> and continue to next position</li>
+                                    <li><strong>Generate bench</strong> with minimum coverage (1 GK, 2 DEF, 1 MID, 2 AM, 1 ST) plus best remaining</li>
+                                </ol>
+
+                                <h6>Why Scarcity Order?</h6>
+                                <p class="small mb-0">Filling scarce positions first prevents "wasting" versatile players. If you only have one natural striker, they should play ST rather than being used as a winger just because they happened to be evaluated first.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Credits -->
+                <div class="mt-4 pt-3 border-top">
+                    <h6 class="text-muted"><i class="bi bi-heart me-1"></i>Credits & Acknowledgments</h6>
+                    <p class="small text-muted mb-0">
+                        Performance threshold methodology adapted from <strong><a href="https://www.fmstag.com/" target="_blank">FMStag</a></strong>'s analytical framework for Football Manager statistics.
+                        The Good/Average/Poor banding system provides a statistically grounded approach to player evaluation that this tool builds upon with role-specific weighting and value calculations.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- JavaScript for Table Sorting, Filtering, and Expand/Collapse -->
 <script>
