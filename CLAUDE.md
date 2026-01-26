@@ -179,9 +179,9 @@ Test-Webpage/
 |---------|------|---------|-------------|
 | **BlogService** | `blog_service.py` | Manages article content | `get_categories()`, `get_article()`, `parse_content()` |
 | **CapacityService** | `capacity_service.py` | Recruitment workload calculations | `calculate_vacancy_load()`, `get_recruiter_summary()`, `calculate_team_summary()` |
-| **SquadAuditService** | `squad_audit_service.py` | Squad analysis & value scoring | `analyze_squad()`, `suggest_formations()`, `export_to_csv_data()` |
+| **SquadAuditService** | `squad_audit_service.py` | Squad analysis & value scoring | `analyze_squad()`, `suggest_formations()`, `generate_best_xi()`, `suggest_formations_with_xi()`, `export_to_csv_data()` |
 | **PlayerEvaluatorService** | `player_evaluator_service.py` | Player position & role evaluation | `get_position_category()`, `evaluate_roles()`, `get_normalized_metrics()` |
-| **SquadAnalysisManager** | `squad_analysis_manager.py` | Orchestrates full analysis pipeline | `process_squad_upload()`, `get_analysis_from_session()` |
+| **SquadAnalysisManager** | `squad_analysis_manager.py` | Orchestrates full analysis pipeline | `process_squad_upload()`, `get_analysis_from_session()`, `get_formation_suggestions_with_xi()` |
 | **FileService** | `file_service.py` | File upload & validation | `validate_uploaded_file()`, `process_excel_upload()` |
 | **ParserFactory** | `parser_factory.py` | Detects FM HTML format | `get_parser()` (returns V1 or V2 parser) |
 | **FMHTMLParser** | `fm_parser.py` | Parses FM HTML (legacy format) | `parse_html()` |
@@ -260,6 +260,60 @@ python scripts/generate_league_baselines.py wage_player_export.html
 - `LeagueWageBaseline` - Single baseline (division + position + wage stats)
 - `LeagueBaselineCollection` - Collection with O(1) lookup cache
 
+### Best XI System
+
+**Purpose:** Generate optimal starting XI and bench for each recommended formation based on role evaluation data.
+
+**Key Features:**
+- **Greedy Assignment Algorithm:** Fills positions by scarcity order to avoid "wasting" versatile players on common positions
+- **Role-Based Scoring:** Uses role evaluation verdicts (ELITE=4, GOOD=3, AVERAGE=2, POOR=1) with natural position bonuses
+- **Balanced Bench Selection:** Enforces minimum coverage (1 GK, 2 DEF, 1 MID, 2 AM, 1 ST) before filling remaining slots
+- **Recruitment Warnings:** Shows dashed red borders for unfilled mandatory bench positions
+- **Drag-and-Drop Swapping:** Users can swap players between XI and bench with automatic score recalculation
+- **Pitch Visualization:** Formation-specific player positioning with percentage-based coordinates
+
+**Algorithm Flow:**
+```
+1. Get formation requirements (e.g., 4-3-3: 1 GK, 2 CB, 2 FB, 3 CM, 3 ST/W)
+   ↓
+2. Order positions by scarcity (fewer available players = higher priority)
+   ↓
+3. For each position, find best available player using role evaluation scores
+   ↓
+4. Assign player, mark as used, continue to next position
+   ↓
+5. Generate bench with Phase 1 (minimum coverage) + Phase 2 (best remaining)
+   ↓
+6. Calculate total quality score (sum of all XI player scores)
+   ↓
+7. Return FormationXI with XI, bench, gaps, and score
+```
+
+**Position-to-Roles Mapping:**
+```python
+POSITION_TO_ROLES = {
+    GK: ['GK'],
+    CB: ['CB-STOPPER', 'BCB'],
+    FB: ['FB', 'WB'],
+    DM: ['MD'],
+    CM: ['MC', 'MD'],
+    AM: ['AM(C)'],
+    W: ['WAP', 'WAS'],
+    ST: ['ST-GS', 'ST-PROVIDER']
+}
+```
+
+**Key Models:**
+- `PlayerAssignment` - Player with assigned position, role, and score
+- `FormationXI` - Complete XI with bench, gaps, and pitch layout coordinates
+- `BenchGap` - Represents unfilled mandatory bench position
+
+**UI Features:**
+- Pitch visualization with formation-specific layouts (stored as x,y coordinates 0-100)
+- Drag-and-drop between XI and bench positions
+- Quality score badge with flash animation on swap
+- Verdict-colored badges (green=ELITE, blue=GOOD, yellow=AVERAGE, red=POOR)
+
 ---
 
 ## Models & Data Flow
@@ -302,6 +356,9 @@ class Player:
 | `Recruiter` | Recruiter with vacancies | `models/vacancy.py` |
 | `LeagueWageBaseline` | League wage baseline for division/position | `models/league_baseline.py` |
 | `LeagueBaselineCollection` | Collection of baselines with lookup cache | `models/league_baseline.py` |
+| `PlayerAssignment` | Player assigned to a position/role in Best XI | `models/squad_audit.py` |
+| `FormationXI` | Best XI selection with bench and quality score | `models/squad_audit.py` |
+| `BenchGap` | Missing mandatory bench position (recruitment warning) | `models/squad_audit.py` |
 
 ### Validation Schemas (`/schemas/`)
 
@@ -1096,6 +1153,6 @@ from app import capacity_service, squad_audit_service, file_service
 
 ---
 
-**Last Updated:** 2026-01-23
+**Last Updated:** 2026-01-26
 **Maintainer:** DuckDuckYellow
 **AI Assistant Version:** Claude Code (Anthropic)
