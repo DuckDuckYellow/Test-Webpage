@@ -877,6 +877,7 @@
                                              data-role="{{ pos.assigned_role }}"
                                              data-score="{{ pos.position_score }}"
                                              data-verdict="{{ pos.player_analysis.verdict.name }}"
+                                             data-natural-positions="{{ pos.player_analysis.player.position }}"
                                              data-slot-type="xi"
                                              data-slot-x="{{ pos.x }}"
                                              data-slot-y="{{ pos.y }}"
@@ -916,11 +917,12 @@
                                              data-role="{{ assignment.assigned_role }}"
                                              data-score="{{ assignment.position_score }}"
                                              data-verdict="{{ assignment.player_analysis.verdict.name }}"
+                                             data-natural-positions="{{ assignment.player_analysis.player.position }}"
                                              data-slot-type="bench"
                                              title="{{ assignment.get_role_display_name() }}"
                                              style="cursor: grab;">
-                                            <span class="badge {% if assignment.assigned_position.value == 'GK' %}bg-warning text-dark{% else %}bg-info{% endif %} me-1 player-badge" style="font-size: 0.65rem;">
-                                                {{ assignment.assigned_position.value }}
+                                            <span class="badge {% if 'GK' in assignment.player_analysis.player.position %}bg-warning text-dark{% else %}bg-info{% endif %} me-1 player-badge" style="font-size: 0.65rem;">
+                                                {{ assignment.player_analysis.player.position }}
                                             </span>
                                             <span class="small text-truncate player-name" style="max-width: 100px;">
                                                 {{ assignment.player_analysis.player.name.split(' ')[-1] }}
@@ -1724,6 +1726,7 @@
                         role: slot1.dataset.role,
                         score: slot1.dataset.score,
                         verdict: slot1.dataset.verdict,
+                        naturalPositions: slot1.dataset.naturalPositions,
                         displayName: slot1.querySelector('.player-name')?.textContent.trim(),
                         roleDisplay: slot1.querySelector('.player-role')?.textContent.trim()
                     };
@@ -1735,6 +1738,7 @@
                         role: slot2.dataset.role,
                         score: slot2.dataset.score,
                         verdict: slot2.dataset.verdict,
+                        naturalPositions: slot2.dataset.naturalPositions,
                         displayName: slot2.querySelector('.player-name')?.textContent.trim(),
                         roleDisplay: slot2.querySelector('.player-role')?.textContent.trim()
                     };
@@ -1747,11 +1751,31 @@
                     updateQualityBadge();
                 };
 
+                // Check if player can naturally play a given slot position
+                const canPlayPosition = (naturalPositions, slotPosition) => {
+                    if (!naturalPositions) return true; // Assume yes if unknown
+                    const np = naturalPositions.toUpperCase();
+                    const sp = slotPosition.toUpperCase();
+
+                    // Direct matches
+                    if (sp === 'GK') return np.includes('GK');
+                    if (sp === 'CB') return np.includes('D ') || np.includes('D(') || np === 'D';
+                    if (sp === 'FB') return np.includes('D ') || np.includes('D(') || np.includes('WB') || np === 'D';
+                    if (sp === 'DM') return np.includes('DM') || np.includes('M (');
+                    if (sp === 'CM') return np.includes('M ') || np.includes('M(') || np.includes('DM') || np === 'M';
+                    if (sp === 'AM') return np.includes('AM') || np.includes('M ') || np.includes('M(');
+                    if (sp === 'W') return np.includes('AM') || np.includes('M ') || np.includes('M(') || np.includes('WB');
+                    if (sp === 'ST') return np.includes('ST');
+
+                    return true; // Default to allowing
+                };
+
                 // Apply player data to a slot
                 const applyPlayerData = (slot, data) => {
                     slot.dataset.playerName = data.playerName;
                     slot.dataset.score = data.score;
                     slot.dataset.verdict = data.verdict;
+                    slot.dataset.naturalPositions = data.naturalPositions;
 
                     // Update display name
                     const nameEl = slot.querySelector('.player-name');
@@ -1759,29 +1783,43 @@
                         nameEl.textContent = data.displayName;
                     }
 
-                    // Update role display (for XI slots)
-                    const roleEl = slot.querySelector('.player-role');
-                    if (roleEl && data.roleDisplay) {
-                        roleEl.textContent = data.roleDisplay;
+                    // For XI slots: role stays fixed to the pitch position (don't swap)
+                    // For bench slots: update the title attribute
+                    if (slot.classList.contains('bench-player-slot')) {
+                        slot.title = data.roleDisplay || data.role;
                     }
 
                     // Update badge color based on position (GK = yellow, outfield = teal)
+                    // Also check for out-of-position warning on XI slots
                     const badge = slot.querySelector('.player-badge');
                     if (badge) {
                         // Remove old background and text color classes
                         badge.className = badge.className.replace(/bg-\w+/g, '').replace(/text-\w+/g, '').trim();
-                        // Apply position-based coloring
+
                         const slotPosition = slot.dataset.position;
-                        if (slotPosition === 'GK') {
+                        const isXiSlot = slot.classList.contains('xi-player-slot');
+                        const isOutOfPosition = isXiSlot && !canPlayPosition(data.naturalPositions, slotPosition);
+
+                        if (isOutOfPosition) {
+                            // Out of position warning - red/danger styling
+                            badge.classList.add('bg-danger', 'text-white');
+                        } else if (slotPosition === 'GK') {
                             badge.classList.add('bg-warning', 'text-dark');
                         } else {
                             badge.classList.add('bg-info');
                         }
                     }
 
-                    // Update title attribute for bench slots
-                    if (slot.classList.contains('bench-player-slot')) {
-                        slot.title = data.roleDisplay || data.role;
+                    // Add/remove out-of-position indicator on the player label
+                    const labelEl = slot.querySelector('.player-label');
+                    if (labelEl && slot.classList.contains('xi-player-slot')) {
+                        const slotPosition = slot.dataset.position;
+                        const isOutOfPosition = !canPlayPosition(data.naturalPositions, slotPosition);
+                        if (isOutOfPosition) {
+                            labelEl.style.border = '2px solid #dc3545';
+                        } else {
+                            labelEl.style.border = '';
+                        }
                     }
                 };
 
