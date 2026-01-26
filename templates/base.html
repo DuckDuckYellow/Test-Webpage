@@ -11,6 +11,9 @@
     <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
+    <!-- Tom Select (styled dropdowns) -->
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -657,6 +660,93 @@
                 font-size: 1rem;
             }
         }
+
+        /* Tom Select - Scout's Desk theming */
+        .ts-wrapper.single .ts-control {
+            background-color: var(--paper-raised);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius-md);
+            padding: 0.625rem 0.875rem;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            color: var(--ink);
+            box-shadow: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .ts-wrapper.single .ts-control:hover {
+            border-color: var(--rule-strong);
+        }
+
+        .ts-wrapper.single.focus .ts-control {
+            border-color: var(--pitch);
+            box-shadow: 0 0 0 3px rgba(61, 90, 69, 0.15);
+            outline: none;
+        }
+
+        .ts-wrapper .ts-control input {
+            font-family: var(--font-body);
+            color: var(--ink);
+        }
+
+        .ts-wrapper .ts-control input::placeholder {
+            color: var(--ink-faint);
+        }
+
+        .ts-dropdown {
+            background-color: var(--paper-raised);
+            border: 1px solid var(--rule);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            margin-top: 4px;
+            font-family: var(--font-body);
+        }
+
+        .ts-dropdown .optgroup-header {
+            background-color: var(--paper-inset);
+            color: var(--ink);
+            font-weight: 600;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            padding: 0.5rem 0.875rem;
+            border-bottom: 1px solid var(--rule-light);
+        }
+
+        .ts-dropdown .option {
+            padding: 0.5rem 0.875rem;
+            color: var(--ink);
+            font-size: 0.9375rem;
+        }
+
+        .ts-dropdown .option:hover,
+        .ts-dropdown .option.active {
+            background-color: var(--paper-inset);
+            color: var(--ink);
+        }
+
+        .ts-dropdown .option.selected {
+            background-color: rgba(61, 90, 69, 0.1);
+            color: var(--pitch-dark);
+        }
+
+        .ts-wrapper.single .ts-control::after {
+            border-color: var(--ink-muted) transparent transparent transparent;
+        }
+
+        .ts-wrapper.single.dropdown-active .ts-control::after {
+            border-color: transparent transparent var(--ink-muted) transparent;
+        }
+
+        /* Remove input cursor when not searching */
+        .ts-wrapper.single .ts-control > input {
+            cursor: pointer;
+        }
+
+        /* Placeholder text styling */
+        .ts-wrapper .ts-control .item {
+            color: var(--ink);
+        }
     </style>
 </head>
 <body>
@@ -713,5 +803,8 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Tom Select (styled dropdowns) -->
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 </body>
 </html>

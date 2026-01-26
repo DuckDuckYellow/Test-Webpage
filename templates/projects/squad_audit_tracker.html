@@ -126,17 +126,6 @@
                                 <strong>Low Sample Size:</strong> This division has fewer than 100 players in the dataset.
                                 League averages may not be representative.
                             </div>
-                            <script>
-                                document.getElementById('division').addEventListener('change', function() {
-                                    const warning = document.getElementById('division-sample-warning');
-                                    const selectedDiv = this.options[this.selectedIndex].text;
-                                    if (selectedDiv.includes('⚠️')) {
-                                        warning.style.display = 'block';
-                                    } else {
-                                        warning.style.display = 'none';
-                                    }
-                                });
-                            </script>
                             {% endif %}
                         </div>
 
@@ -1963,5 +1952,70 @@
     });
 </script>
 {% endif %}
+
+<!-- Initialize Tom Select for styled dropdowns -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Division dropdown with search (many options)
+    const divisionSelect = document.getElementById('division');
+    if (divisionSelect && typeof TomSelect !== 'undefined') {
+        // Remove "OTHER" optgroup before initializing Tom Select
+        divisionSelect.querySelectorAll('optgroup').forEach(function(optgroup) {
+            if (optgroup.label && optgroup.label.toUpperCase().includes('OTHER')) {
+                optgroup.remove();
+            }
+        });
+
+        const divisionTS = new TomSelect('#division', {
+            create: false,
+            sortField: { field: 'text', direction: 'asc' },
+            placeholder: 'Search divisions...',
+            render: {
+                option: function(data, escape) {
+                    // Highlight low sample warnings
+                    const hasWarning = data.text.includes('⚠️');
+                    const className = hasWarning ? 'text-warning' : '';
+                    return '<div class="option ' + className + '">' + escape(data.text) + '</div>';
+                },
+                item: function(data, escape) {
+                    return '<div class="item">' + escape(data.text) + '</div>';
+                },
+                optgroup_header: function(data, escape) {
+                    // Skip rendering if it's the "OTHER" group
+                    if (data.label && data.label.includes('OTHER')) {
+                        return '';
+                    }
+                    return '<div class="optgroup-header">' + escape(data.label) + '</div>';
+                }
+            },
+            onInitialize: function() {
+                // Style the placeholder
+                this.control_input.placeholder = 'Search divisions...';
+            },
+            onChange: function(value) {
+                // Handle low sample warning
+                const warning = document.getElementById('division-sample-warning');
+                if (warning) {
+                    const selectedOption = this.options[value];
+                    if (selectedOption && selectedOption.text.includes('⚠️')) {
+                        warning.style.display = 'block';
+                    } else {
+                        warning.style.display = 'none';
+                    }
+                }
+            }
+        });
+    }
+
+    // Game season dropdown (simple, fewer options)
+    const seasonSelect = document.getElementById('game_season');
+    if (seasonSelect && typeof TomSelect !== 'undefined') {
+        new TomSelect('#game_season', {
+            create: false,
+            sortField: null // Keep original order
+        });
+    }
+});
+</script>
 
 {% endblock %}
