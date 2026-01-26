@@ -881,7 +881,7 @@
                                              data-slot-x="{{ pos.x }}"
                                              data-slot-y="{{ pos.y }}"
                                              style="left: {{ pos.x }}%; top: {{ pos.y }}%; transform: translate(-50%, -50%); width: 80px; cursor: grab;">
-                                            <div class="badge bg-{{ pos.player_analysis.get_verdict_color() }} rounded-circle mx-auto mb-1 player-badge" style="width: 36px; height: 36px; line-height: 32px; font-size: 0.7rem;">
+                                            <div class="badge {% if pos.assigned_position.value == 'GK' %}bg-warning text-dark{% else %}bg-info{% endif %} rounded-circle mx-auto mb-1 player-badge" style="width: 36px; height: 36px; line-height: 32px; font-size: 0.7rem;">
                                                 {{ pos.assigned_position.value }}
                                             </div>
                                             <div class="bg-white bg-opacity-90 rounded px-1 py-0 player-label" style="font-size: 0.65rem;">
@@ -919,7 +919,7 @@
                                              data-slot-type="bench"
                                              title="{{ assignment.get_role_display_name() }}"
                                              style="cursor: grab;">
-                                            <span class="badge bg-{{ assignment.player_analysis.get_verdict_color() }} me-1 player-badge" style="font-size: 0.65rem;">
+                                            <span class="badge {% if assignment.assigned_position.value == 'GK' %}bg-warning text-dark{% else %}bg-info{% endif %} me-1 player-badge" style="font-size: 0.65rem;">
                                                 {{ assignment.assigned_position.value }}
                                             </span>
                                             <span class="small text-truncate player-name" style="max-width: 100px;">
@@ -1432,12 +1432,18 @@
                         roleEl.textContent = data.roleDisplay;
                     }
 
-                    // Update badge color based on verdict
+                    // Update badge color based on position (GK = yellow, outfield = teal)
                     const badge = slot.querySelector('.player-badge');
                     if (badge) {
-                        badge.className = badge.className.replace(/bg-\w+/, '');
-                        const colorClass = getVerdictColor(data.verdict);
-                        badge.classList.add(colorClass);
+                        // Remove old background and text color classes
+                        badge.className = badge.className.replace(/bg-\w+/g, '').replace(/text-\w+/g, '').trim();
+                        // Apply position-based coloring
+                        const slotPosition = slot.dataset.position;
+                        if (slotPosition === 'GK') {
+                            badge.classList.add('bg-warning', 'text-dark');
+                        } else {
+                            badge.classList.add('bg-info');
+                        }
                     }
 
                     // Update title attribute for bench slots
