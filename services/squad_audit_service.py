@@ -330,7 +330,7 @@ class SquadAuditService:
             if player.best_role and player.best_role.tier == 'ELITE':
                 return Recommendation(
                     badge="WAGE CUT",
-                    icon="💰",
+                    icon="",
                     color="warning",
                     explanation="Elite performance but overpaid",
                     has_contract_warning=contract_warning
@@ -338,7 +338,7 @@ class SquadAuditService:
             else:
                 return Recommendation(
                     badge="CONSIDER SALE",
-                    icon="$",
+                    icon="",
                     color="danger",
                     explanation="Poor value for wage cost",
                     has_contract_warning=contract_warning
@@ -352,7 +352,7 @@ class SquadAuditService:
             if status == StatusFlag.TRANSFER_LISTED:
                 return Recommendation(
                     badge="KEEP & PLAY",
-                    icon="✓",
+                    icon="",
                     color="success",
                     explanation="Elite ratings despite transfer list",
                     has_contract_warning=contract_warning
@@ -360,7 +360,7 @@ class SquadAuditService:
             elif status == StatusFlag.U21:
                 return Recommendation(
                     badge="PROMOTE",
-                    icon="↑",
+                    icon="",
                     color="info",
                     explanation="Elite young talent",
                     has_contract_warning=contract_warning
@@ -368,7 +368,7 @@ class SquadAuditService:
             elif player.apps < 10:
                 return Recommendation(
                     badge="INCREASE MINS",
-                    icon="⏱",
+                    icon="",
                     color="info",
                     explanation="Elite output per 90",
                     has_contract_warning=contract_warning
@@ -376,7 +376,7 @@ class SquadAuditService:
             else:
                 return Recommendation(
                     badge="CORE STARTER",
-                    icon="⭐",
+                    icon="",
                     color="success",
                     explanation="Elite performance",
                     has_contract_warning=contract_warning
@@ -386,14 +386,14 @@ class SquadAuditService:
             if status == StatusFlag.TRANSFER_LISTED:
                 return Recommendation(
                     badge="EVALUATE",
-                    icon="⇄",
+                    icon="",
                     color="warning",
                     explanation="Good depth option on transfer list",
                     has_contract_warning=contract_warning
                 )
             return Recommendation(
                 badge="BACKUP",
-                icon="◐",
+                icon="",
                 color="secondary",
                 explanation="Solid rotation option",
                 has_contract_warning=contract_warning
@@ -403,14 +403,14 @@ class SquadAuditService:
             if status == StatusFlag.U21:
                 return Recommendation(
                     badge="DEVELOP",
-                    icon="📈",
+                    icon="",
                     color="warning",
                     explanation="Not ready yet",
                     has_contract_warning=contract_warning
                 )
             return Recommendation(
                 badge="SELL/REPLACE",
-                icon="✗",
+                icon="",
                 color="danger",
                 explanation="Below standard",
                 has_contract_warning=contract_warning
@@ -419,7 +419,7 @@ class SquadAuditService:
         # AVERAGE tier
         return Recommendation(
             badge="BACKUP",
-            icon="◐",
+            icon="",
             color="secondary",
             explanation="Average performance",
             has_contract_warning=contract_warning
@@ -813,7 +813,7 @@ class SquadAuditService:
                     # Update to REGULAR STARTER
                     analysis.recommendation = Recommendation(
                         badge="REGULAR STARTER",
-                        icon="▶",
+                        icon="",
                         color="info",
                         explanation="Starting XI in best formation",
                         has_contract_warning=analysis.recommendation.has_contract_warning
