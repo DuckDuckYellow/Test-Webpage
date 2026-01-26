@@ -1959,11 +1959,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Division dropdown with search (many options)
     const divisionSelect = document.getElementById('division');
     if (divisionSelect && typeof TomSelect !== 'undefined') {
-        // Remove "OTHER" optgroup options before initializing Tom Select
-        const otherOptgroup = divisionSelect.querySelector('optgroup[label*="OTHER"]');
-        if (otherOptgroup) {
-            otherOptgroup.remove();
-        }
+        // Remove "OTHER" optgroup before initializing Tom Select
+        divisionSelect.querySelectorAll('optgroup').forEach(function(optgroup) {
+            if (optgroup.label && optgroup.label.toUpperCase().includes('OTHER')) {
+                optgroup.remove();
+            }
+        });
 
         const divisionTS = new TomSelect('#division', {
             create: false,
