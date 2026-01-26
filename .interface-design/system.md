@@ -73,6 +73,21 @@ Subtle shadows. Borders for structure, shadows for lift.
 3. **Warm paper** - Off-white backgrounds, never pure white
 4. **Pitch green** - Primary accent color
 5. **Subtle depth** - Cards lift slightly
+6. **Tom Select dropdowns** - Styled selects with warm paper background, 400px max-height
+7. **Cream pitch badges** - Position markers on pitch use `--paper` for contrast
+
+---
+
+## Form Elements
+
+### Dropdowns (Tom Select)
+
+- Background: `--paper-raised`
+- Border: `--rule`, focus ring uses `--pitch`
+- Optgroup headers: uppercase, `--paper-inset` background
+- Max dropdown height: 400px
+
+---
 
 ## What This Is Not
 
@@ -80,3 +95,4 @@ Subtle shadows. Borders for structure, shadows for lift.
 - No pure white backgrounds
 - No heavy borders
 - No Bootstrap blue
+- No emojis in action badges (exception: contract warning clock)
