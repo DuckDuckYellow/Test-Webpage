@@ -5,6 +5,7 @@ Squad Audit Tracker Data Models - Refactored PODOs.
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 from enum import Enum
+from datetime import date
 from models.constants import PositionCategory
 
 class StatusFlag(Enum):
@@ -131,9 +132,12 @@ class Player:
         evaluator = PlayerEvaluatorService()
         return evaluator.get_position_category(self)
 
-    def get_contract_expiry_relative(self) -> str:
+    def get_contract_expiry_relative(self, reference_date: Optional[date] = None) -> str:
         """
         Convert contract expiry date to relative time period.
+
+        Args:
+            reference_date: The in-game date to calculate from. If None, uses today's real date.
 
         Returns:
             Relative time period string (<6m, <1yr, 2yrs, 3yrs, etc.)
@@ -144,8 +148,8 @@ class Player:
             return "N/A"
 
         try:
-            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
-            today = datetime.now()
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y").date()
+            today = reference_date if reference_date else datetime.now().date()
 
             # Calculate months remaining
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
@@ -170,9 +174,12 @@ class Player:
         except:
             return "N/A"
 
-    def get_contract_expiry_color(self) -> str:
+    def get_contract_expiry_color(self, reference_date: Optional[date] = None) -> str:
         """
         Get Bootstrap color class for contract expiry badge.
+
+        Args:
+            reference_date: The in-game date to calculate from. If None, uses today's real date.
 
         Returns:
             Bootstrap color class (danger, warning, info, success)
@@ -183,8 +190,8 @@ class Player:
             return "secondary"
 
         try:
-            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
-            today = datetime.now()
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y").date()
+            today = reference_date if reference_date else datetime.now().date()
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
 
             if months_remaining < 6:
@@ -198,9 +205,12 @@ class Player:
         except:
             return "secondary"
 
-    def get_contract_months_remaining(self) -> int:
+    def get_contract_months_remaining(self, reference_date: Optional[date] = None) -> int:
         """
         Get months remaining on contract for sorting purposes.
+
+        Args:
+            reference_date: The in-game date to calculate from. If None, uses today's real date.
 
         Returns:
             Months remaining (999 for N/A contracts to sort them to the end)
@@ -211,8 +221,8 @@ class Player:
             return 999
 
         try:
-            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y")
-            today = datetime.now()
+            expiry_date = datetime.strptime(self.expires, "%d/%m/%Y").date()
+            today = reference_date if reference_date else datetime.now().date()
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
             return months_remaining
         except:
@@ -295,6 +305,20 @@ class SquadAnalysisResult:
     squad_avg_wage: float = 0.0
     total_players: int = 0
     selected_division: Optional[str] = None  # Division selected for league comparison
+    game_date: Optional[date] = None  # In-game date for contract calculations
+
+    def get_season_display(self) -> str:
+        """Get formatted season string (e.g., '2024/25') based on game_date."""
+        if not self.game_date:
+            return "Unknown Season"
+        # Football season typically runs Aug-May
+        # If we're in Jan-Jul, the season started last year
+        if self.game_date.month <= 7:
+            start_year = self.game_date.year - 1
+        else:
+            start_year = self.game_date.year
+        end_year_short = str(start_year + 1)[-2:]
+        return f"{start_year}/{end_year_short}"
 
     def get_elite_players(self) -> List[PlayerAnalysis]:
         return [a for a in self.player_analyses if a.verdict == PerformanceVerdict.ELITE]

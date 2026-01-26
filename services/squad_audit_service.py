@@ -3,7 +3,7 @@ Squad Audit Analysis Service - Refactored.
 """
 
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, date
 from models.squad_audit import (
     Player,
     Squad,
@@ -43,7 +43,8 @@ class SquadAuditService:
         self,
         squad: Squad,
         selected_division: Optional[str] = None,
-        league_baselines: Optional[LeagueBaselineCollection] = None
+        league_baselines: Optional[LeagueBaselineCollection] = None,
+        game_date: Optional[date] = None
     ) -> SquadAnalysisResult:
         """Perform complete squad analysis with optional league comparison."""
         benchmarks = self._calculate_position_benchmarks(squad)
@@ -56,7 +57,8 @@ class SquadAuditService:
                 benchmarks,
                 squad_avg_wage,
                 selected_division=selected_division,
-                league_baselines=league_baselines
+                league_baselines=league_baselines,
+                game_date=game_date
             )
             player_analyses.append(analysis)
 
@@ -66,7 +68,8 @@ class SquadAuditService:
             position_benchmarks=benchmarks,
             squad_avg_wage=squad_avg_wage,
             total_players=len(squad.players),
-            selected_division=selected_division
+            selected_division=selected_division,
+            game_date=game_date
         )
 
     def _analyze_player(
@@ -76,7 +79,8 @@ class SquadAuditService:
         squad_avg_wage: float,
         position_override: Optional[PositionCategory] = None,
         selected_division: Optional[str] = None,
-        league_baselines: Optional[LeagueBaselineCollection] = None
+        league_baselines: Optional[LeagueBaselineCollection] = None,
+        game_date: Optional[date] = None
     ) -> PlayerAnalysis:
         """
         Analyze a single player with minutes-based reliability thresholds.
@@ -117,7 +121,7 @@ class SquadAuditService:
                     has_contract_warning=False
                 ),
                 top_metrics=["N/A - Insufficient Data"],
-                contract_warning=self._check_contract_warning(player.expires)
+                contract_warning=self._check_contract_warning(player.expires, game_date)
             )
 
         # SOFT FLOOR: 200-500 minutes - Apply Bayesian Average (only if mins is explicitly set)
@@ -145,10 +149,10 @@ class SquadAuditService:
         # Generate recommendation (Soft Floor players get is_projected=True)
         # mins=None is treated as full data for backward compatibility
         is_projected = mins is not None and 200 <= mins < 500
-        recommendation = self._generate_role_recommendation(player, value_score, is_projected=is_projected)
+        recommendation = self._generate_role_recommendation(player, value_score, is_projected=is_projected, game_date=game_date)
         top_metrics = self._format_all_metrics(player.best_role.metric_scores, projected=is_projected)
 
-        contract_warning = self._check_contract_warning(player.expires)
+        contract_warning = self._check_contract_warning(player.expires, game_date)
 
         return PlayerAnalysis(
             player=player,
@@ -283,7 +287,8 @@ class SquadAuditService:
         self,
         player: Player,
         value_score: float,
-        is_projected: bool = False
+        is_projected: bool = False,
+        game_date: Optional[date] = None
     ) -> Recommendation:
         """
         Generate structured recommendation with badge, icon, color, and explanation.
@@ -292,12 +297,13 @@ class SquadAuditService:
             player: Player to generate recommendation for
             value_score: Calculated value score
             is_projected: True if player has 200-500 minutes (Soft Floor)
+            game_date: In-game date for contract calculations
 
         Returns:
             Recommendation object with badge/icon/color/explanation
         """
         # Check contract status for warning overlay
-        contract_warning = self._check_contract_expiring_soon(player)
+        contract_warning = self._check_contract_expiring_soon(player, game_date)
 
         # LOW DATA: <500 minutes
         if player.mins is not None and player.mins < 500:
@@ -419,7 +425,7 @@ class SquadAuditService:
             has_contract_warning=contract_warning
         )
 
-    def _check_contract_expiring_soon(self, player: Player) -> bool:
+    def _check_contract_expiring_soon(self, player: Player, game_date: Optional[date] = None) -> bool:
         """Check if Elite/Good player has <6 months on contract."""
         if not player.best_role or player.best_role.tier not in ['ELITE', 'GOOD']:
             return False
@@ -428,8 +434,8 @@ class SquadAuditService:
             return False
 
         try:
-            expiry_date = datetime.strptime(player.expires, "%d/%m/%Y")
-            today = datetime.now()
+            expiry_date = datetime.strptime(player.expires, "%d/%m/%Y").date()
+            today = game_date if game_date else datetime.now().date()
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
             return months_remaining < 6
         except:
@@ -481,11 +487,11 @@ class SquadAuditService:
 
         return result if result else ["N/A"]
 
-    def _check_contract_warning(self, expires: str) -> bool:
+    def _check_contract_warning(self, expires: str, game_date: Optional[date] = None) -> bool:
         if not expires or expires == "-": return False
         try:
-            expiry_date = datetime.strptime(expires, "%d/%m/%Y")
-            today = datetime.now()
+            expiry_date = datetime.strptime(expires, "%d/%m/%Y").date()
+            today = game_date if game_date else datetime.now().date()
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
             return months_remaining <= 12
         except: return False

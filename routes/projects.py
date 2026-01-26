@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, send_file, current_app, s
 from io import BytesIO, StringIO
 import csv
 import re
+from datetime import date
 from collections import OrderedDict
 from pydantic import ValidationError
 from extensions import csrf
@@ -223,6 +224,17 @@ def squad_audit_tracker():
     if request.method == "POST":
         file = request.files.get('html_file')
         selected_division = request.form.get('division', '').strip() or None
+        game_season = request.form.get('game_season', '').strip() or None
+
+        # Convert season to a game_date (January 1 of the season year)
+        game_date = None
+        if game_season:
+            try:
+                season_year = int(game_season)
+                # Use January 1 of the second year of the season (mid-season)
+                game_date = date(season_year + 1, 1, 1)
+            except (ValueError, TypeError):
+                pass
 
         if not file or file.filename == '':
             errors.append("No file uploaded")
@@ -233,7 +245,8 @@ def squad_audit_tracker():
             analysis_result, analysis_errors = squad_manager.process_squad_upload(
                 html_content,
                 selected_division=selected_division,
-                league_baselines=league_baselines
+                league_baselines=league_baselines,
+                game_date=game_date
             )
             errors.extend(analysis_errors)
 

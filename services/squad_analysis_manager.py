@@ -5,6 +5,7 @@ Squad Analysis Manager - Orchestrates the analysis workflow.
 import os
 import uuid
 import tempfile
+from datetime import date
 from typing import Tuple, List, Optional, Dict
 from flask import session, current_app
 from services.parser_factory import ParserFactory
@@ -25,7 +26,8 @@ class SquadAnalysisManager:
         self,
         file_content: str,
         selected_division: Optional[str] = None,
-        league_baselines: Optional[LeagueBaselineCollection] = None
+        league_baselines: Optional[LeagueBaselineCollection] = None,
+        game_date: Optional[date] = None
     ) -> Tuple[Optional[SquadAnalysisResult], List[str]]:
         """
         Processes a squad HTML upload with optional league comparison.
@@ -51,11 +53,12 @@ class SquadAnalysisManager:
             analysis_result = self.audit_service.analyze_squad(
                 squad,
                 selected_division=selected_division,
-                league_baselines=league_baselines
+                league_baselines=league_baselines,
+                game_date=game_date
             )
 
-            # Persist to safe temporary storage (including division selection)
-            self._persist_to_session(file_content, selected_division)
+            # Persist to safe temporary storage (including division and game date)
+            self._persist_to_session(file_content, selected_division, game_date)
 
             return analysis_result, errors
             
@@ -69,14 +72,16 @@ class SquadAnalysisManager:
 
     def get_analysis_from_session(self) -> Optional[SquadAnalysisResult]:
         """
-        Retrieves and re-analyzes squad from session-stored HTML with division.
+        Retrieves and re-analyzes squad from session-stored HTML with division and game date.
         """
         html_content = self._get_from_session()
         if not html_content:
             return None
 
-        # Get stored division selection
+        # Get stored division selection and game date
         selected_division = session.get('selected_division')
+        game_date_str = session.get('game_date')
+        game_date = date.fromisoformat(game_date_str) if game_date_str else None
 
         # Get league baselines from app context
         from app import league_baselines
@@ -91,11 +96,12 @@ class SquadAnalysisManager:
         return self.audit_service.analyze_squad(
             squad,
             selected_division=selected_division,
-            league_baselines=league_baselines
+            league_baselines=league_baselines,
+            game_date=game_date
         )
 
-    def _persist_to_session(self, content: str, selected_division: Optional[str] = None):
-        """Stores content in a UUID-named file and saves UUID + division in session."""
+    def _persist_to_session(self, content: str, selected_division: Optional[str] = None, game_date: Optional[date] = None):
+        """Stores content in a UUID-named file and saves UUID + division + game_date in session."""
         analysis_id = str(uuid.uuid4())
 
         # Ensure temp directory exists
@@ -109,6 +115,7 @@ class SquadAnalysisManager:
 
         session['squad_analysis_id'] = analysis_id
         session['selected_division'] = selected_division
+        session['game_date'] = game_date.isoformat() if game_date else None
         session.permanent = True
 
     def _get_from_session(self) -> Optional[str]:
