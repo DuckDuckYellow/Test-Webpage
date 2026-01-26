@@ -1968,7 +1968,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const divisionTS = new TomSelect('#division', {
             create: false,
-            sortField: { field: 'text', direction: 'asc' },
+            sortField: null,  // Keep original order from server
             placeholder: 'Search divisions...',
             render: {
                 option: function(data, escape) {
@@ -1985,7 +1985,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.label && data.label.includes('OTHER')) {
                         return '';
                     }
-                    return '<div class="optgroup-header">' + escape(data.label) + '</div>';
+                    // Strip flag emoji from country name
+                    const cleanLabel = data.label.replace(/^🏴\s*/, '');
+                    return '<div class="optgroup-header">' + escape(cleanLabel) + '</div>';
                 }
             },
             onInitialize: function() {
