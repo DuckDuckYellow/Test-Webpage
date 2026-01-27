@@ -21,227 +21,25 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
     """
     Group divisions by country for prettier dropdown display.
 
+    Uses config from data/division_mappings.json loaded at app startup.
     Returns OrderedDict with country as key and list of (division_name, is_low_sample) tuples.
     """
-    # Exact match mappings for specific league names
-    exact_matches = {
-        # England
-        'Sky Bet Championship': 'England',
-        'Sky Bet League One': 'England',
-        'Sky Bet League Two': 'England',
-        'Vanarama National League': 'England',
-        'Vanarama National League North': 'England',
-        'Vanarama National League South': 'England',
-        # France
-        'Ligue 1 Uber Eats': 'France',
-        'Ligue 2 BKT': 'France',
-        # Germany
-        'Bundesliga': 'Germany',
-        'Bundesliga 2': 'Germany',
-        '2. Division': 'Germany',
-        '3. Liga': 'Germany',
-        # Netherlands
-        'Eredivisie': 'Netherlands',
-        'Keuken Kampioen Divisie': 'Netherlands',
-        # Belgium
-        'Jupiler Pro League': 'Belgium',
-        'Nationale 1 - ACFF': 'Belgium',
-        'Nationale 1 - VV': 'Belgium',
-        # Scotland
-        'cinch Premiership': 'Scotland',
-        'cinch Championship': 'Scotland',
-        # Poland
-        'PKO Bank Polski Ekstraklasa': 'Poland',
-        # Saudi Arabia
-        'Saudi Professional League': 'Saudi Arabia',
-        'Saudi First Division League': 'Saudi Arabia',
-        # Japan
-        'J1 League': 'Japan',
-        'J2 League': 'Japan',
-        # Australia
-        'Isuzu UTE A-League': 'Australia',
-        # Denmark
-        '3F Superliga': 'Denmark',
-        'NordicBet Liga': 'Denmark',
-        # Iran
-        'Persian Gulf Premier League': 'Iran',
-        # Morocco
-        'Botola Pro 1': 'Morocco',
-        # Northern Ireland
-        'Sports Direct Premiership': 'Northern Ireland',
-        # Qatar
-        'Qatar Stars League': 'Qatar',
-        'Qatar League': 'Qatar',
-        # South Korea
-        'Hana 1Q K LEAGUE 1': 'South Korea',
-        # UAE
-        'UAE Professional League': 'UAE',
-        'UAE First Division': 'UAE',
-        # USA / Canada
-        'Major League Soccer': 'USA',
-        'MLS Next Pro Eastern Conference': 'USA',
-        'USSL Championship Eastern Conference': 'USA',
-        'USSL Championship Western Conference': 'USA',
-        # Other specific leagues
-        'Hong Kong Premier League': 'Hong Kong',
-        'Thai League': 'Thailand',
-        'Malaysian Super League': 'Malaysia',
-        'Singaporean Premier League': 'Singapore',
-    }
+    from app import division_mappings
 
-    # League tier priorities (lower number = higher tier, appears first)
-    # Leagues not listed default to tier 50
-    league_tiers = {
-        # Germany
-        'Bundesliga': 1,
-        'Bundesliga 2': 2,
-        '3. Liga': 3,
-        # England
-        'English Premier Division': 1,
-        'Sky Bet Championship': 2,
-        'Sky Bet League One': 3,
-        'Sky Bet League Two': 4,
-        'Vanarama National League': 5,
-        'Vanarama National League North': 6,
-        'Vanarama National League South': 6,
-        # France
-        'Ligue 1 Uber Eats': 1,
-        'Ligue 2 BKT': 2,
-        # Spain
-        'Spanish First Division': 1,
-        'Spanish Second Division': 2,
-        # Italy
-        'Italian Serie A': 1,
-        'Italian Serie B': 2,
-        # Netherlands
-        'Eredivisie': 1,
-        'Keuken Kampioen Divisie': 2,
-        # Portugal
-        'Portuguese Premier League': 1,
-        'Portuguese Second League': 2,
-        # Belgium
-        'Jupiler Pro League': 1,
-        # Scotland
-        'cinch Premiership': 1,
-        'cinch Championship': 2,
-        # Poland
-        'PKO Bank Polski Ekstraklasa': 1,
-        'Polish First Division': 2,
-        'Polish Second Division': 3,
-        # Japan
-        'J1 League': 1,
-        'J2 League': 2,
-        # Saudi Arabia
-        'Saudi Professional League': 1,
-        'Saudi First Division League': 2,
-        # Denmark
-        '3F Superliga': 1,
-        'NordicBet Liga': 2,
-        # Qatar
-        'Qatar Stars League': 1,
-        'Qatar League': 2,
-        # UAE
-        'UAE Professional League': 1,
-        'UAE First Division': 2,
-        # USA
-        'Major League Soccer': 1,
-        'MLS Next Pro Eastern Conference': 2,
-    }
-
-    # Prefix-based country patterns (for leagues following naming conventions)
-    country_patterns = [
-        # Multi-word countries first
-        ('South Korean', 'South Korea'),
-        ('South African', 'South Africa'),
-        ('North American', 'North America'),
-        ('New Zealand', 'New Zealand'),
-        ('Hong Kong', 'Hong Kong'),
-        ('Saudi Arabian', 'Saudi Arabia'),
-        ('United Arab', 'UAE'),
-        # Single word countries
-        ('English', 'England'),
-        ('Scottish', 'Scotland'),
-        ('Welsh', 'Wales'),
-        ('Irish', 'Ireland'),
-        ('German', 'Germany'),
-        ('French', 'France'),
-        ('Spanish', 'Spain'),
-        ('Italian', 'Italy'),
-        ('Dutch', 'Netherlands'),
-        ('Belgian', 'Belgium'),
-        ('Portuguese', 'Portugal'),
-        ('Brazilian', 'Brazil'),
-        ('Argentine', 'Argentina'),
-        ('Mexican', 'Mexico'),
-        ('American', 'USA'),
-        ('Canadian', 'Canada'),
-        ('Japanese', 'Japan'),
-        ('Chinese', 'China'),
-        ('Australian', 'Australia'),
-        ('Russian', 'Russia'),
-        ('Turkish', 'Turkey'),
-        ('Greek', 'Greece'),
-        ('Polish', 'Poland'),
-        ('Czech', 'Czech Republic'),
-        ('Austrian', 'Austria'),
-        ('Swiss', 'Switzerland'),
-        ('Swedish', 'Sweden'),
-        ('Norwegian', 'Norway'),
-        ('Danish', 'Denmark'),
-        ('Finnish', 'Finland'),
-        ('Croatian', 'Croatia'),
-        ('Serbian', 'Serbia'),
-        ('Ukrainian', 'Ukraine'),
-        ('Romanian', 'Romania'),
-        ('Bulgarian', 'Bulgaria'),
-        ('Hungarian', 'Hungary'),
-        ('Colombian', 'Colombia'),
-        ('Chilean', 'Chile'),
-        ('Peruvian', 'Peru'),
-        ('Ecuadorian', 'Ecuador'),
-        ('Uruguayan', 'Uruguay'),
-        ('Venezuelan', 'Venezuela'),
-        ('Paraguayan', 'Paraguay'),
-        ('Bolivian', 'Bolivia'),
-        ('Costa Rican', 'Costa Rica'),
-        ('Honduran', 'Honduras'),
-        ('Guatemalan', 'Guatemala'),
-        ('Panamanian', 'Panama'),
-        ('Jamaican', 'Jamaica'),
-        ('Israeli', 'Israel'),
-        ('Egyptian', 'Egypt'),
-        ('Moroccan', 'Morocco'),
-        ('Tunisian', 'Tunisia'),
-        ('Algerian', 'Algeria'),
-        ('Nigerian', 'Nigeria'),
-        ('Ghanaian', 'Ghana'),
-        ('Kenyan', 'Kenya'),
-        ('Indian', 'India'),
-        ('Thai', 'Thailand'),
-        ('Vietnamese', 'Vietnam'),
-        ('Malaysian', 'Malaysia'),
-        ('Singaporean', 'Singapore'),
-        ('Indonesian', 'Indonesia'),
-        ('Filipino', 'Philippines'),
-        ('Cypriot', 'Cyprus'),
-        ('Icelandic', 'Iceland'),
-        ('Slovenian', 'Slovenia'),
-        ('Slovak', 'Slovakia'),
-        ('Belarusian', 'Belarus'),
-        ('Lithuanian', 'Lithuania'),
-        ('Latvian', 'Latvia'),
-        ('Estonian', 'Estonia'),
-        ('Georgian', 'Georgia'),
-        ('Armenian', 'Armenia'),
-        ('Azerbaijani', 'Azerbaijan'),
-        ('Kazakh', 'Kazakhstan'),
-        ('Uzbek', 'Uzbekistan'),
-        ('Qatari', 'Qatar'),
-        ('Kuwaiti', 'Kuwait'),
-        ('Bahraini', 'Bahrain'),
-        ('Omani', 'Oman'),
-        ('Azeri', 'Azerbaijan'),
-    ]
+    # Load config or use empty defaults
+    if division_mappings:
+        exact_matches = division_mappings.get('exact_matches', {})
+        league_tiers = division_mappings.get('league_tiers', {})
+        country_patterns = division_mappings.get('country_patterns', [])
+        priority_countries = division_mappings.get('priority_countries', [])
+        default_tier = division_mappings.get('default_tier', 50)
+    else:
+        # Fallback if config not loaded
+        exact_matches = {}
+        league_tiers = {}
+        country_patterns = []
+        priority_countries = []
+        default_tier = 50
 
     grouped = {}
 
@@ -271,13 +69,10 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
             grouped[country] = []
         grouped[country].append((division, is_low_sample))
 
-    # Sort countries alphabetically, but put major leagues first
-    priority_countries = ['England', 'Spain', 'Germany', 'Italy', 'France', 'Netherlands', 'Portugal', 'Belgium', 'Scotland']
-
     def sort_key(item):
         """Sort by: low_sample flag, then league tier, then alphabetically."""
         division_name, is_low_sample = item
-        tier = league_tiers.get(division_name, 50)  # Default tier 50 for unlisted leagues
+        tier = league_tiers.get(division_name, default_tier)
         return (is_low_sample, tier, division_name)
 
     sorted_grouped = OrderedDict()

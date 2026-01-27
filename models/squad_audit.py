@@ -171,7 +171,12 @@ class Player:
                 return "4yrs"
             else:
                 return f"{years_remaining}yrs"
-        except:
+        except (ValueError, TypeError) as e:
+            # Invalid date format or wrong type - log for debugging but return gracefully
+            import logging
+            logging.getLogger(__name__).debug(
+                f"Failed to parse contract expiry for '{self.expires}': {e}"
+            )
             return "N/A"
 
     def get_contract_expiry_color(self, reference_date: Optional[date] = None) -> str:
@@ -202,7 +207,12 @@ class Player:
                 return "info"
             else:
                 return "success"
-        except:
+        except (ValueError, TypeError) as e:
+            # Invalid date format or wrong type - log for debugging but return gracefully
+            import logging
+            logging.getLogger(__name__).debug(
+                f"Failed to parse contract color for '{self.expires}': {e}"
+            )
             return "secondary"
 
     def get_contract_months_remaining(self, reference_date: Optional[date] = None) -> int:
@@ -225,7 +235,12 @@ class Player:
             today = reference_date if reference_date else datetime.now().date()
             months_remaining = (expiry_date.year - today.year) * 12 + (expiry_date.month - today.month)
             return months_remaining
-        except:
+        except (ValueError, TypeError) as e:
+            # Invalid date format or wrong type - log for debugging but return sentinel value
+            import logging
+            logging.getLogger(__name__).debug(
+                f"Failed to calculate contract months for '{self.expires}': {e}"
+            )
             return 999
 
 @dataclass
@@ -382,6 +397,56 @@ class BenchGap:
     count_missing: int   # How many slots couldn't be filled
 
 
+# Formation pitch layouts: x (0-100 left-right), y (0-100 top-bottom, GK at bottom)
+# Module-level constant - shared across all FormationXI instances
+FORMATION_LAYOUTS: Dict[str, Dict[str, List[tuple]]] = {
+    "4-2-3-1 DM AM Wide": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(35, 55), (65, 55)], "AM": [(50, 35)], "W": [(15, 28), (85, 28)], "ST": [(50, 10)]
+    },
+    "4-3-3 DM Wide": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "W": [(15, 25), (85, 25)], "ST": [(50, 10)]
+    },
+    "4-3-2-1 DM AM Narrow": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "AM": [(35, 28), (65, 28)], "ST": [(50, 10)]
+    },
+    "5-2-2-1 DM AM": {
+        "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
+        "DM": [(35, 50), (65, 50)], "AM": [(35, 30), (65, 30)], "ST": [(50, 10)]
+    },
+    "5-2-3 DM Wide": {
+        "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
+        "DM": [(35, 50), (65, 50)], "W": [(20, 25), (80, 25)], "ST": [(50, 10)]
+    },
+    "4-4-2": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "CM": [(35, 50), (65, 50)], "W": [(12, 45), (88, 45)], "ST": [(35, 15), (65, 15)]
+    },
+    "4-2-4 DM Wide": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(35, 55), (65, 55)], "W": [(15, 25), (85, 25)], "ST": [(35, 10), (65, 10)]
+    },
+    "4-4-2 Diamond Narrow": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(50, 58)], "CM": [(30, 45), (70, 45)], "AM": [(50, 32)], "ST": [(35, 12), (65, 12)]
+    },
+    "4-2-2-2 DM AM Narrow": {
+        "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
+        "DM": [(35, 55), (65, 55)], "AM": [(35, 35), (65, 35)], "ST": [(35, 12), (65, 12)]
+    },
+    "5-3-2 DM WB": {
+        "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 60), (92, 60)],
+        "DM": [(50, 50)], "CM": [(30, 40), (70, 40)], "ST": [(35, 12), (65, 12)]
+    },
+    "3-4-3": {
+        "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(10, 55), (90, 55)],
+        "CM": [(35, 45), (65, 45)], "W": [(18, 22), (82, 22)], "ST": [(50, 10)]
+    }
+}
+
+
 @dataclass
 class FormationXI:
     """Complete XI selection for a formation."""
@@ -390,54 +455,6 @@ class FormationXI:
     bench: List[PlayerAssignment]
     bench_gaps: List[BenchGap]
     total_quality_score: float
-
-    # Pitch layouts: x (0-100 left-right), y (0-100 top-bottom, GK at bottom)
-    FORMATION_LAYOUTS: Dict[str, Dict[str, List[tuple]]] = field(default_factory=lambda: {
-        "4-2-3-1 DM AM Wide": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(35, 55), (65, 55)], "AM": [(50, 35)], "W": [(15, 28), (85, 28)], "ST": [(50, 10)]
-        },
-        "4-3-3 DM Wide": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "W": [(15, 25), (85, 25)], "ST": [(50, 10)]
-        },
-        "4-3-2-1 DM AM Narrow": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(50, 55)], "CM": [(30, 45), (70, 45)], "AM": [(35, 28), (65, 28)], "ST": [(50, 10)]
-        },
-        "5-2-2-1 DM AM": {
-            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
-            "DM": [(35, 50), (65, 50)], "AM": [(35, 30), (65, 30)], "ST": [(50, 10)]
-        },
-        "5-2-3 DM Wide": {
-            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 65), (92, 65)],
-            "DM": [(35, 50), (65, 50)], "W": [(20, 25), (80, 25)], "ST": [(50, 10)]
-        },
-        "4-4-2": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "CM": [(35, 50), (65, 50)], "W": [(12, 45), (88, 45)], "ST": [(35, 15), (65, 15)]
-        },
-        "4-2-4 DM Wide": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(35, 55), (65, 55)], "W": [(15, 25), (85, 25)], "ST": [(35, 10), (65, 10)]
-        },
-        "4-4-2 Diamond Narrow": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(50, 58)], "CM": [(30, 45), (70, 45)], "AM": [(50, 32)], "ST": [(35, 12), (65, 12)]
-        },
-        "4-2-2-2 DM AM Narrow": {
-            "GK": [(50, 92)], "CB": [(35, 78), (65, 78)], "FB": [(12, 70), (88, 70)],
-            "DM": [(35, 55), (65, 55)], "AM": [(35, 35), (65, 35)], "ST": [(35, 12), (65, 12)]
-        },
-        "5-3-2 DM WB": {
-            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(8, 60), (92, 60)],
-            "DM": [(50, 50)], "CM": [(30, 40), (70, 40)], "ST": [(35, 12), (65, 12)]
-        },
-        "3-4-3": {
-            "GK": [(50, 92)], "CB": [(25, 78), (50, 78), (75, 78)], "FB": [(10, 55), (90, 55)],
-            "CM": [(35, 45), (65, 45)], "W": [(18, 22), (82, 22)], "ST": [(50, 10)]
-        }
-    })
 
     def get_xi_as_list(self) -> List[PlayerAssignment]:
         """Flatten starting XI ordered by position (GK→ST)."""
@@ -454,7 +471,7 @@ class FormationXI:
 
     def get_pitch_positions(self) -> List[Dict]:
         """Return assignments with x,y pitch coordinates for visualization."""
-        layout = self.FORMATION_LAYOUTS.get(self.formation_name, {})
+        layout = FORMATION_LAYOUTS.get(self.formation_name, {})
         result = []
         position_indices = {}
 

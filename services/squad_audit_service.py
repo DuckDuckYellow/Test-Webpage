@@ -599,53 +599,119 @@ class SquadAuditService:
 
     def generate_best_xi(self, formation: Dict,
                          result: SquadAnalysisResult) -> FormationXI:
-        """Generate optimal XI and bench for a formation."""
+        """
+        Generate optimal XI and bench for a formation using two-pass assignment.
+
+        Improved algorithm that handles versatile players better:
+        1. Identify critical positions with limited viable candidates
+        2. Lock in critical assignments first to avoid leaving positions unfilled
+        3. Assign remaining positions with versatility penalty to preserve options
+        """
         positions = formation['positions']
         used_players = set()
         starting_xi = {}
         total_score = 0.0
 
-        # Sort positions by scarcity (fewest available players first)
-        def count_available(pos):
-            return len([a for a in result.player_analyses
-                       if pos in self.player_evaluator.get_all_possible_positions(a.player)])
+        # Pre-calculate viable candidates for each position (AVERAGE+ tier)
+        VIABILITY_THRESHOLD = {
+            PerformanceVerdict.ELITE: True,
+            PerformanceVerdict.GOOD: True,
+            PerformanceVerdict.AVERAGE: True,
+            PerformanceVerdict.POOR: False
+        }
 
-        sorted_positions = sorted(positions.items(), key=lambda x: count_available(x[0]))
+        position_viability = {}
+        for position in positions.keys():
+            viable_count = len([
+                a for a in result.player_analyses
+                if (position in self.player_evaluator.get_all_possible_positions(a.player)
+                    and VIABILITY_THRESHOLD.get(a.verdict, False))
+            ])
+            position_viability[position] = viable_count
 
-        for position, slots_needed in sorted_positions:
+        # PASS 1: Identify and fill critical positions (viable_count <= slots_needed)
+        critical_positions = [
+            (pos, slots) for pos, slots in positions.items()
+            if position_viability.get(pos, 0) <= slots
+        ]
+
+        for position, slots_needed in critical_positions:
             starting_xi[position] = []
-
-            # Get candidates who can play this position and aren't used
             candidates = [
                 a for a in result.player_analyses
                 if position in self.player_evaluator.get_all_possible_positions(a.player)
                 and a.player.name not in used_players
             ]
 
-            # Score and sort candidates
-            scored = []
-            for candidate in candidates:
-                pos_score, role = self._get_position_score(candidate, position)
-                tier_priority = {PerformanceVerdict.ELITE: 4, PerformanceVerdict.GOOD: 3,
-                               PerformanceVerdict.AVERAGE: 2, PerformanceVerdict.POOR: 1}
-                scored.append((candidate, pos_score, role, tier_priority.get(candidate.verdict, 0)))
-
-            scored.sort(key=lambda x: (x[3], x[1]), reverse=True)
-
-            # Select top N
+            # Score and assign best available
+            scored = self._score_candidates_for_position(candidates, position)
             for i in range(min(slots_needed, len(scored))):
-                candidate, pos_score, role, _ = scored[i]
-                is_natural = self.player_evaluator.get_position_category(candidate.player) == position
-                assignment = PlayerAssignment(
-                    player_analysis=candidate,
-                    assigned_position=position,
-                    assigned_role=role or position.value,
-                    position_score=pos_score,
-                    is_natural=is_natural
-                )
+                assignment = self._create_assignment(scored[i], position)
+                starting_xi[position].append(assignment)
+                used_players.add(scored[i][0].player.name)
+                total_score += scored[i][1]
+
+        # PASS 2: Fill remaining positions with versatility penalty
+        remaining_positions = [
+            (pos, slots) for pos, slots in positions.items()
+            if pos not in dict(critical_positions)
+        ]
+
+        # Sort by viability (fewest viable candidates first)
+        remaining_positions.sort(
+            key=lambda x: position_viability.get(x[0], 0)
+        )
+
+        for position, slots_needed in remaining_positions:
+            starting_xi[position] = []
+            candidates = [
+                a for a in result.player_analyses
+                if position in self.player_evaluator.get_all_possible_positions(a.player)
+                and a.player.name not in used_players
+            ]
+
+            # Apply versatility penalty: penalize candidates who have many other options
+            scored_with_penalty = []
+            for candidate in candidates:
+                base_score, role = self._get_position_score(candidate, position)
+
+                # Count how many OTHER positions this player can viably fill
+                other_positions = [
+                    p for p in positions.keys()
+                    if p != position
+                    and p in self.player_evaluator.get_all_possible_positions(candidate.player)
+                    and position_viability.get(p, 0) > 0  # Only count positions that still need filling
+                ]
+                versatility_count = len(other_positions)
+
+                # Apply penalty: -5% per additional position they can fill
+                versatility_penalty = 1.0 - (0.05 * versatility_count)
+                adjusted_score = base_score * max(0.7, versatility_penalty)  # Floor at 70%
+
+                tier_priority = {
+                    PerformanceVerdict.ELITE: 4,
+                    PerformanceVerdict.GOOD: 3,
+                    PerformanceVerdict.AVERAGE: 2,
+                    PerformanceVerdict.POOR: 1
+                }
+                scored_with_penalty.append((
+                    candidate,
+                    adjusted_score,
+                    role,
+                    tier_priority.get(candidate.verdict, 0),
+                    base_score  # Keep original for assignment
+                ))
+
+            # Sort by tier, then adjusted score
+            scored_with_penalty.sort(key=lambda x: (x[3], x[1]), reverse=True)
+
+            # Assign best available
+            for i in range(min(slots_needed, len(scored_with_penalty))):
+                candidate, adjusted_score, role, tier, original_score = scored_with_penalty[i]
+                assignment = self._create_assignment((candidate, original_score, role), position)
                 starting_xi[position].append(assignment)
                 used_players.add(candidate.player.name)
-                total_score += pos_score
+                total_score += original_score
 
         # Generate bench with gap tracking
         bench, bench_gaps = self._generate_bench(result, used_players)
@@ -656,6 +722,51 @@ class SquadAuditService:
             bench=bench,
             bench_gaps=bench_gaps,
             total_quality_score=total_score
+        )
+
+    def _score_candidates_for_position(
+        self,
+        candidates: List[PlayerAnalysis],
+        position: PositionCategory
+    ) -> List[Tuple[PlayerAnalysis, float, str]]:
+        """Score candidates for a position and return sorted list."""
+        scored = []
+        tier_priority = {
+            PerformanceVerdict.ELITE: 4,
+            PerformanceVerdict.GOOD: 3,
+            PerformanceVerdict.AVERAGE: 2,
+            PerformanceVerdict.POOR: 1
+        }
+
+        for candidate in candidates:
+            pos_score, role = self._get_position_score(candidate, position)
+            scored.append((
+                candidate,
+                pos_score,
+                role,
+                tier_priority.get(candidate.verdict, 0)
+            ))
+
+        scored.sort(key=lambda x: (x[3], x[1]), reverse=True)
+        return scored
+
+    def _create_assignment(
+        self,
+        scored_candidate: Tuple,
+        position: PositionCategory
+    ) -> PlayerAssignment:
+        """Create a PlayerAssignment from scored candidate data."""
+        candidate = scored_candidate[0]
+        pos_score = scored_candidate[1]
+        role = scored_candidate[2] if len(scored_candidate) > 2 else None
+
+        is_natural = self.player_evaluator.get_position_category(candidate.player) == position
+        return PlayerAssignment(
+            player_analysis=candidate,
+            assigned_position=position,
+            assigned_role=role or position.value,
+            position_score=pos_score,
+            is_natural=is_natural
         )
 
     def _generate_bench(self, result: SquadAnalysisResult,

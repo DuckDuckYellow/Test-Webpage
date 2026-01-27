@@ -28,6 +28,7 @@ blog_service = None
 capacity_service = None
 file_service = None
 league_baselines = None
+division_mappings = None
 
 
 def format_date(date_string):
@@ -66,6 +67,35 @@ def initialize_league_baselines(app):
         )
 
 
+def initialize_division_mappings(app):
+    """
+    Load division-to-country mappings from JSON config file on startup.
+
+    This enables grouping divisions by country in dropdowns without hardcoded
+    mappings in the route code. Config can be updated without code changes.
+    """
+    global division_mappings
+    import json
+    mappings_path = os.path.join(os.path.dirname(__file__), 'data', 'division_mappings.json')
+
+    if os.path.exists(mappings_path):
+        try:
+            with open(mappings_path, 'r', encoding='utf-8') as f:
+                division_mappings = json.load(f)
+            app.logger.info(
+                f"Loaded division mappings: {len(division_mappings.get('exact_matches', {}))} exact, "
+                f"{len(division_mappings.get('country_patterns', []))} patterns"
+            )
+        except Exception as e:
+            app.logger.error(f"Failed to load division mappings: {e}")
+            division_mappings = None
+    else:
+        app.logger.warning(
+            f"Division mappings not found at {mappings_path} - "
+            "using fallback grouping"
+        )
+
+
 def create_app(config_class=None):
     """
     Application Factory Pattern.
@@ -95,7 +125,7 @@ def create_app(config_class=None):
     setup_logger(app)
 
     # Initialize global services
-    global blog_service, capacity_service, file_service, league_baselines
+    global blog_service, capacity_service, file_service, league_baselines, division_mappings
     blog_service = BlogService(app.config['ARTICLES_DIR'])
     capacity_service = CapacityService()
     file_service = FileService(
@@ -105,8 +135,9 @@ def create_app(config_class=None):
 
     app.logger.info("Services initialized successfully")
 
-    # Initialize league baselines
+    # Initialize league baselines and division mappings
     initialize_league_baselines(app)
+    initialize_division_mappings(app)
 
     # Initialize global data structures
     initialize_blog_categories()
