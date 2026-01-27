@@ -11,10 +11,11 @@ import os
 from config import get_config
 from models import Article, BlogCategory
 from services import BlogService, CapacityService, FileService
+from services.pead_screening_manager import PEADScreeningManager
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from extensions import csrf, limiter
+from extensions import csrf, limiter, db
 
 # Initialize extensions (will be attached to app in create_app)
 # csrf and limiter are now imported from extensions.py
@@ -28,6 +29,7 @@ PROJECTS = []
 blog_service = None
 capacity_service = None
 file_service = None
+pead_manager = None
 
 
 def format_date(date_string):
@@ -120,6 +122,12 @@ def create_app(config_class=None):
     # Initialize extensions
     csrf.init_app(app)
     limiter.init_app(app)
+    db.init_app(app)
+
+    # Create database tables if they don't exist
+    with app.app_context():
+        db.create_all()
+        app.logger.info("Database initialized successfully")
 
     # Setup professional logging
     from utils.logger import setup_logger
@@ -127,13 +135,14 @@ def create_app(config_class=None):
 
     # Initialize global services
     # Note: league_baselines and division_mappings now stored in app.config
-    global blog_service, capacity_service, file_service
+    global blog_service, capacity_service, file_service, pead_manager
     blog_service = BlogService(app.config['ARTICLES_DIR'])
     capacity_service = CapacityService()
     file_service = FileService(
         upload_extensions=app.config['UPLOAD_EXTENSIONS'],
         max_content_length=app.config['MAX_CONTENT_LENGTH']
     )
+    pead_manager = PEADScreeningManager()
 
     app.logger.info("Services initialized successfully")
 
@@ -201,6 +210,13 @@ def initialize_projects():
 
     PROJECTS.extend([
         {
+            "id": "pead-screener",
+            "name": "PEAD Screener",
+            "description": "Post-Earnings Announcement Drift analysis for FTSE 100/250 with earnings quality filtering.",
+            "status": "active",
+            "url": "/financial/pead-screener"
+        },
+        {
             "id": "capacity-tracker",
             "name": "Recruitment Capacity Tracker",
             "description": "Calculate team capacity for recruitment workloads.",
@@ -263,13 +279,16 @@ def register_security_headers(app):
 def register_blueprints(app):
     """Register all application blueprints."""
     from routes import main_bp, blog_bp, projects_bp
+    from routes.financial import financial_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(blog_bp)
     app.register_blueprint(projects_bp)
+    app.register_blueprint(financial_bp)
 
     # Apply rate limiting to sensitive routes
     limiter.limit("10 per minute")(projects_bp)
+    limiter.limit("10 per minute")(financial_bp)
 
     app.logger.info("Blueprints registered successfully")
 

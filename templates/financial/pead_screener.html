@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="hero hero-sm">
+    <h1>PEAD Screener</h1>
+    <p>Post-Earnings Announcement Drift for FTSE 100/250</p>
+</section>
+
+{% if not results %}
+<!-- Upload Form -->
+<section class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Upload Earnings Data</h5>
+                    <p class="text-muted">Upload a CSV file containing FTSE 100/250 earnings announcements with financial metrics.</p>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> <strong>New to PEAD screening?</strong>
+                        <a href="{{ url_for('static', filename='sample_pead_data.csv') }}" download class="alert-link">
+                            Download sample CSV file
+                        </a> to test the screener with realistic data.
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+                        <!-- File Input -->
+                        <div class="mb-3">
+                            <label for="csv_file" class="form-label">CSV File</label>
+                            <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                            <div class="form-text">
+                                Required columns: Ticker, Company Name, Report Date, Actual EPS, Net Income, Operating Cash Flow, Total Assets
+                            </div>
+                        </div>
+
+                        <!-- FTSE Index Filter -->
+                        <div class="mb-3">
+                            <label for="ftse_index" class="form-label">FTSE Index</label>
+                            <select class="form-select" id="ftse_index" name="ftse_index">
+                                <option value="BOTH">FTSE 100 + 250</option>
+                                <option value="FTSE100">FTSE 100 Only</option>
+                                <option value="FTSE250">FTSE 250 Only</option>
+                            </select>
+                        </div>
+
+                        <!-- Drift Window -->
+                        <div class="mb-3">
+                            <label for="drift_window" class="form-label">Drift Window</label>
+                            <select class="form-select" id="drift_window" name="drift_window">
+                                <option value="60">60 Days (Quarterly)</option>
+                                <option value="90" selected>90 Days (Semi-Annual - UK Standard)</option>
+                                <option value="120">120 Days (Extended)</option>
+                            </select>
+                            <div class="form-text">
+                                Semi-annual reporters (H1/H2) typically show drift over 90 days
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Screen Opportunities
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- CSV Format Guide -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="card-title">CSV Format Requirements</h6>
+                    <p class="small text-muted">Your CSV must include these columns (case-sensitive):</p>
+                    <ul class="small mb-3">
+                        <li><strong>Required:</strong> Ticker, Company Name, Report Date (YYYY-MM-DD), Reporting Period, Period Type, Actual EPS, Net Income, Operating Cash Flow, Total Assets</li>
+                        <li><strong>Optional (for better quality metrics):</strong> Change in Receivables, Change in Inventory, Change in Payables, Depreciation, Total Debt, Sector, Fiscal Year End Month</li>
+                    </ul>
+                    <div class="table-responsive">
+                        <table class="table table-sm small">
+                            <thead>
+                                <tr>
+                                    <th>Ticker</th>
+                                    <th>Company Name</th>
+                                    <th>Report Date</th>
+                                    <th>Period</th>
+                                    <th>Type</th>
+                                    <th>EPS</th>
+                                    <th>Sector</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>TSCO</td>
+                                    <td>Tesco PLC</td>
+                                    <td>2024-08-15</td>
+                                    <td>H1-24</td>
+                                    <td>HALF</td>
+                                    <td>0.18</td>
+                                    <td>Consumer Staples</td>
+                                </tr>
+                                <tr>
+                                    <td>LLOY</td>
+                                    <td>Lloyds Banking</td>
+                                    <td>2024-07-20</td>
+                                    <td>H1-24</td>
+                                    <td>HALF</td>
+                                    <td>0.06</td>
+                                    <td>Financials</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        <i class="bi bi-lightbulb"></i> <strong>Tip:</strong> Include at least 4-8 historical periods per stock for accurate SUE calculation. Financial sector stocks (banks, insurance) will use ROA persistence instead of accruals for quality metrics.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if results %}
+<!-- Results Display -->
+<section class="container my-5">
+    <!-- Summary Statistics -->
+    <div class="row text-center mb-4">
+        <div class="col-md-3">
+            <h3 class="text-success">{{ strong_buy_count }}</h3>
+            <small class="text-muted">Strong Buy Signals</small>
+        </div>
+        <div class="col-md-3">
+            <h3 class="text-primary">{{ buy_count }}</h3>
+            <small class="text-muted">Buy Signals</small>
+        </div>
+        <div class="col-md-3">
+            <h3 class="text-info">{{ high_quality_count }}</h3>
+            <small class="text-muted">High Quality (70+)</small>
+        </div>
+        <div class="col-md-3">
+            <h3>{{ total_count }}</h3>
+            <small class="text-muted">Total Opportunities</small>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Search ticker/company...">
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" id="sueDecileFilter">
+                <option value="">All SUE Deciles</option>
+                <option value="9">Decile 9-10 (Highest)</option>
+                <option value="7">Decile 7-10</option>
+                <option value="5">Decile 5-10</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" id="qualityFilter">
+                <option value="">All Quality Levels</option>
+                <option value="70">High Quality (70+)</option>
+                <option value="50">Medium+ (50+)</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" id="recommendationFilter">
+                <option value="">All Recommendations</option>
+                <option value="STRONG_BUY">Strong Buy</option>
+                <option value="BUY">Buy</option>
+                <option value="HOLD">Hold</option>
+                <option value="AVOID">Avoid</option>
+            </select>
+        </div>
+        <div class="col-md-3 text-end">
+            <button id="clearFilters" class="btn btn-sm btn-outline-secondary">Clear Filters</button>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th>Company</th>
+                    <th>Sector</th>
+                    <th class="text-center">SUE Score</th>
+                    <th class="text-center">SUE Decile</th>
+                    <th class="text-center">Quality Score</th>
+                    <th class="text-center">Recommendation</th>
+                    <th class="text-center">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for result in results %}
+                <tr class="opportunity-row"
+                    data-ticker="{{ result.ticker }}"
+                    data-company="{{ result.company_name }}"
+                    data-sue-decile="{{ result.sue_decile }}"
+                    data-quality="{{ result.quality_score }}"
+                    data-recommendation="{{ result.recommendation }}">
+                    <td><strong>{{ result.ticker }}</strong></td>
+                    <td>{{ result.company_name }}</td>
+                    <td><span class="badge bg-secondary">{{ result.sector }}</span></td>
+                    <td class="text-center">
+                        <strong>{{ result.sue_score }}</strong>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ result.decile_color }}">
+                            {{ result.sue_decile }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ result.quality_color }}">
+                            {{ result.quality_score }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-{{ result.rec_color }}">
+                            {{ result.recommendation }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <button class="btn btn-sm btn-outline-primary toggle-details">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr class="opportunity-details-row" style="display: none;">
+                    <td colspan="8">
+                        <div class="p-3 bg-light">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{{ result.ticker }} - {{ result.company_name }}</h6>
+                                    <p class="mb-2"><strong>Recommendation:</strong> {{ result.recommendation_explanation }}</p>
+                                    <p class="mb-1"><strong>Report Date:</strong> {{ result.report_date }} ({{ result.reporting_period }})</p>
+                                    <p class="mb-1"><strong>Period Type:</strong> {{ result.period_type }}</p>
+                                    <p class="mb-1"><strong>Drift Window:</strong> {{ result.drift_window_days }} days (ends {{ result.drift_window_end }})</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Metrics</h6>
+                                    <p class="mb-1"><strong>Actual EPS:</strong> {{ result.actual_eps }}</p>
+                                    <p class="mb-1"><strong>Expected EPS:</strong> {{ result.expected_eps }}</p>
+                                    <p class="mb-1"><strong>Quality Method:</strong> {{ result.quality_method }}</p>
+                                    {% if result.accruals_ratio %}
+                                    <p class="mb-1"><strong>Accruals Ratio:</strong> {{ result.accruals_ratio }}</p>
+                                    {% endif %}
+                                    {% if result.cf_to_assets %}
+                                    <p class="mb-1"><strong>Cash Flow / Assets:</strong> {{ result.cf_to_assets }}</p>
+                                    {% endif %}
+                                    <p class="mb-1"><strong>Global Decile:</strong> {{ result.global_decile }} | <strong>Sector Decile:</strong> {{ result.sector_decile or 'N/A' }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <a href="{{ url_for('financial.export_pead_results') }}" class="btn btn-success">
+                <i class="bi bi-download"></i> Export to CSV
+            </a>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{{ url_for('financial.new_pead_screening') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> New Screening
+            </a>
+        </div>
+    </div>
+</section>
+
+<script>
+// Toggle details rows
+document.querySelectorAll('.toggle-details').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const row = this.closest('tr');
+        const detailsRow = row.nextElementSibling;
+        const icon = this.querySelector('i');
+
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = '';
+            icon.classList.remove('bi-chevron-down');
+            icon.classList.add('bi-chevron-up');
+        } else {
+            detailsRow.style.display = 'none';
+            icon.classList.remove('bi-chevron-up');
+            icon.classList.add('bi-chevron-down');
+        }
+    });
+});
+
+// Search filter
+document.getElementById('searchInput').addEventListener('keyup', function(e) {
+    const query = e.target.value.toLowerCase();
+    document.querySelectorAll('.opportunity-row').forEach(row => {
+        const ticker = row.dataset.ticker.toLowerCase();
+        const company = row.dataset.company.toLowerCase();
+        const match = ticker.includes(query) || company.includes(query);
+        row.style.display = match ? '' : 'none';
+        row.nextElementSibling.style.display = 'none'; // Hide details row
+    });
+});
+
+// SUE Decile filter
+document.getElementById('sueDecileFilter').addEventListener('change', function(e) {
+    const minDecile = parseInt(e.target.value) || 0;
+    document.querySelectorAll('.opportunity-row').forEach(row => {
+        const decile = parseInt(row.dataset.sueDecile) || 0;
+        row.style.display = decile >= minDecile ? '' : 'none';
+        row.nextElementSibling.style.display = 'none';
+    });
+});
+
+// Quality filter
+document.getElementById('qualityFilter').addEventListener('change', function(e) {
+    const minQuality = parseFloat(e.target.value) || 0;
+    document.querySelectorAll('.opportunity-row').forEach(row => {
+        const quality = parseFloat(row.dataset.quality) || 0;
+        row.style.display = quality >= minQuality ? '' : 'none';
+        row.nextElementSibling.style.display = 'none';
+    });
+});
+
+// Recommendation filter
+document.getElementById('recommendationFilter').addEventListener('change', function(e) {
+    const rec = e.target.value;
+    document.querySelectorAll('.opportunity-row').forEach(row => {
+        const rowRec = row.dataset.recommendation;
+        row.style.display = !rec || rowRec === rec ? '' : 'none';
+        row.nextElementSibling.style.display = 'none';
+    });
+});
+
+// Clear filters
+document.getElementById('clearFilters').addEventListener('click', function() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('sueDecileFilter').value = '';
+    document.getElementById('qualityFilter').value = '';
+    document.getElementById('recommendationFilter').value = '';
+
+    document.querySelectorAll('.opportunity-row').forEach(row => {
+        row.style.display = '';
+        row.nextElementSibling.style.display = 'none';
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

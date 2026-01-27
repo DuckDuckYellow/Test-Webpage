@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/generate_league_baselines.py:*)",
+      "Bash(git config:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: Add league-based value calculations \\(Phases 1-2\\)\n\nImplement foundation for league-wide wage baseline comparisons, enabling\nplayers to be compared against league average wages for their position\nand division \\(supplementing existing squad-based comparisons\\).\n\nPhase 1: Data Foundation\n- Create LeagueWageBaseline and LeagueBaselineCollection models\n- Implement LeagueBaselineGenerator service with:\n  * FM wage export HTML parsing \\(61-column format\\)\n  * Robust regex-based wage parsing \\(handles £3,400,000 p/w → 3400000.0\\)\n  * GK multiplier calculation from top 5 European leagues \\(0.677\\)\n  * Position aggregation for <30 sample sizes \\(Defenders/Midfielders/Attackers\\)\n  * JSON serialization/deserialization\n- Create baseline generation CLI script\n- Generate league_baselines.json \\(455 baselines from 15,384 players across 134 divisions\\)\n\nPhase 2: Calculation Logic\n- Extend PlayerAnalysis model with league comparison fields:\n  * league_value_score \\(performance / league wage index\\)\n  * league_baseline reference\n  * league_wage_percentile\n  * Value comparison indicator \\(\"League Bargain\" / \"Squad Context\"\\)\n- Add league value calculation to SquadAuditService:\n  * _calculate_league_value_score\\(\\) with GK estimation fallback\n  * Integration with analyze_squad\\(\\) and _analyze_player\\(\\)\n  * Position aggregation cascade \\(try specific, fallback to group\\)\n- Update CSV export with league data columns\n\nFeatures:\n- GK multiplier: Auto-calculate from top 5 leagues, estimate GK wages when missing\n- Position aggregation: If position <30 players, aggregate into broader groups\n- Value comparison: Show \"League Bargain\" when league value 30+ higher than squad value\n- Robust parsing: Handles various wage formats and HTML structures\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(curl:*)",
+      "Bash(python -m pytest:*)"
+    ]
+  }
+}

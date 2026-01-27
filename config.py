@@ -42,6 +42,11 @@ class Config:
     STATIC_DIR = BASE_DIR / 'static'
     TEMPLATES_DIR = BASE_DIR / 'templates'
 
+    # Database configuration
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', f'sqlite:///{BASE_DIR / "newton.db"}')
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ECHO = False  # Set to True for SQL query debugging
+
     # Application settings
     JSON_SORT_KEYS = False
     JSONIFY_PRETTYPRINT_REGULAR = False
