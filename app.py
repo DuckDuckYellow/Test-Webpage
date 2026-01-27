@@ -24,11 +24,10 @@ BLOG_CATEGORIES = {}
 PROJECTS = []
 
 # Global services (initialized in create_app, accessible to blueprints)
+# Note: league_baselines and division_mappings moved to app.config for better testability
 blog_service = None
 capacity_service = None
 file_service = None
-league_baselines = None
-division_mappings = None
 
 
 def format_date(date_string):
@@ -41,59 +40,61 @@ def initialize_league_baselines(app):
     """
     Load league wage baselines from JSON file on startup.
 
-    If the baseline file exists, loads it into the global league_baselines variable.
-    If missing, logs a warning but continues (feature will be disabled).
+    Stores in app.config['LEAGUE_BASELINES'] instead of global variable
+    for better testability and Flask best practices.
     """
-    global league_baselines
     baseline_path = os.path.join(os.path.dirname(__file__), 'data', 'league_baselines.json')
 
     if os.path.exists(baseline_path):
         try:
             from services.league_baseline_generator import LeagueBaselineGenerator
             generator = LeagueBaselineGenerator()
-            league_baselines = generator.load_from_json(baseline_path)
+            baselines = generator.load_from_json(baseline_path)
+            app.config['LEAGUE_BASELINES'] = baselines
             app.logger.info(
-                f"Loaded {len(league_baselines.baselines)} league baselines from "
-                f"{len(league_baselines.get_available_divisions())} divisions "
-                f"(GK multiplier: {league_baselines.gk_wage_multiplier:.3f})"
+                f"Loaded {len(baselines.baselines)} league baselines from "
+                f"{len(baselines.get_available_divisions())} divisions "
+                f"(GK multiplier: {baselines.gk_wage_multiplier:.3f})"
             )
         except Exception as e:
             app.logger.error(f"Failed to load league baselines: {e}")
-            league_baselines = None
+            app.config['LEAGUE_BASELINES'] = None
     else:
         app.logger.warning(
             f"League baseline data not found at {baseline_path} - "
             "league value comparisons will not be available"
         )
+        app.config['LEAGUE_BASELINES'] = None
 
 
 def initialize_division_mappings(app):
     """
     Load division-to-country mappings from JSON config file on startup.
 
-    This enables grouping divisions by country in dropdowns without hardcoded
-    mappings in the route code. Config can be updated without code changes.
+    Stores in app.config['DIVISION_MAPPINGS'] instead of global variable
+    for better testability and Flask best practices.
     """
-    global division_mappings
     import json
     mappings_path = os.path.join(os.path.dirname(__file__), 'data', 'division_mappings.json')
 
     if os.path.exists(mappings_path):
         try:
             with open(mappings_path, 'r', encoding='utf-8') as f:
-                division_mappings = json.load(f)
+                mappings = json.load(f)
+            app.config['DIVISION_MAPPINGS'] = mappings
             app.logger.info(
-                f"Loaded division mappings: {len(division_mappings.get('exact_matches', {}))} exact, "
-                f"{len(division_mappings.get('country_patterns', []))} patterns"
+                f"Loaded division mappings: {len(mappings.get('exact_matches', {}))} exact, "
+                f"{len(mappings.get('country_patterns', []))} patterns"
             )
         except Exception as e:
             app.logger.error(f"Failed to load division mappings: {e}")
-            division_mappings = None
+            app.config['DIVISION_MAPPINGS'] = None
     else:
         app.logger.warning(
             f"Division mappings not found at {mappings_path} - "
             "using fallback grouping"
         )
+        app.config['DIVISION_MAPPINGS'] = None
 
 
 def create_app(config_class=None):
@@ -125,7 +126,8 @@ def create_app(config_class=None):
     setup_logger(app)
 
     # Initialize global services
-    global blog_service, capacity_service, file_service, league_baselines, division_mappings
+    # Note: league_baselines and division_mappings now stored in app.config
+    global blog_service, capacity_service, file_service
     blog_service = BlogService(app.config['ARTICLES_DIR'])
     capacity_service = CapacityService()
     file_service = FileService(

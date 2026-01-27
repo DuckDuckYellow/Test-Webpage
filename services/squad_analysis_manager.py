@@ -73,18 +73,21 @@ class SquadAnalysisManager:
     def get_analysis_from_session(self) -> Optional[SquadAnalysisResult]:
         """
         Retrieves and re-analyzes squad from session-stored HTML with division and game date.
+
+        Safely handles corrupted/invalid session data with validation and fallbacks.
         """
         html_content = self._get_from_session()
         if not html_content:
             return None
 
-        # Get stored division selection and game date
+        # Get stored division selection
         selected_division = session.get('selected_division')
-        game_date_str = session.get('game_date')
-        game_date = date.fromisoformat(game_date_str) if game_date_str else None
 
-        # Get league baselines from app context
-        from app import league_baselines
+        # Safely parse game date from session with validation
+        game_date = self._parse_game_date_from_session()
+
+        # Get league baselines from app config (better than global import)
+        league_baselines = current_app.config.get('LEAGUE_BASELINES')
 
         # Re-parse and analyze (stateless but consistent)
         parser = self.parser_factory.get_parser(html_content)
@@ -99,6 +102,47 @@ class SquadAnalysisManager:
             league_baselines=league_baselines,
             game_date=game_date
         )
+
+    def _parse_game_date_from_session(self) -> Optional[date]:
+        """
+        Safely parse game date from session storage.
+
+        Handles corrupted ISO strings, wrong types, and extreme dates.
+        Returns None if parsing fails rather than crashing.
+        """
+        game_date_str = session.get('game_date')
+
+        if not game_date_str:
+            return None
+
+        try:
+            # Validate it's a string
+            if not isinstance(game_date_str, str):
+                current_app.logger.warning(
+                    f"Invalid game_date type in session: {type(game_date_str)}"
+                )
+                return None
+
+            # Parse ISO format
+            parsed_date = date.fromisoformat(game_date_str)
+
+            # Sanity check: reasonable date range (1990-2100)
+            if parsed_date.year < 1990 or parsed_date.year > 2100:
+                current_app.logger.warning(
+                    f"Game date out of reasonable range: {parsed_date}"
+                )
+                return None
+
+            return parsed_date
+
+        except (ValueError, TypeError, AttributeError) as e:
+            # ValueError: Invalid ISO format
+            # TypeError: Wrong type passed to fromisoformat
+            # AttributeError: Unexpected object type
+            current_app.logger.warning(
+                f"Failed to parse game_date from session '{game_date_str}': {e}"
+            )
+            return None
 
     def _persist_to_session(self, content: str, selected_division: Optional[str] = None, game_date: Optional[date] = None):
         """Stores content in a UUID-named file and saves UUID + division + game_date in session."""
