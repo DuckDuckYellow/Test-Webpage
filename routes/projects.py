@@ -24,7 +24,8 @@ def group_divisions_by_country(divisions: list, league_baselines=None) -> Ordere
     Uses config from data/division_mappings.json loaded at app startup.
     Returns OrderedDict with country as key and list of (division_name, is_low_sample) tuples.
     """
-    from app import division_mappings
+    # Get config from Flask app context instead of global import
+    division_mappings = current_app.config.get('DIVISION_MAPPINGS')
 
     # Load config or use empty defaults
     if division_mappings:
@@ -146,7 +147,8 @@ def capacity_tracker():
 @projects_bp.route("/squad-audit-tracker", methods=["GET", "POST"])
 def squad_audit_tracker():
     """Squad Audit Tracker tool - uses Manager."""
-    from app import league_baselines
+    # Get league baselines from app config instead of global import
+    league_baselines = current_app.config.get('LEAGUE_BASELINES')
 
     analysis_result = None
     errors = []
