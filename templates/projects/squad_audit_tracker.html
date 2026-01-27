@@ -2,6 +2,10 @@
 
 {% block title %}Squad Audit Tracker - Newton's Repository{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/squad_audit.css') }}">
+{% endblock %}
+
 {% block content %}
 <!-- Hero Section -->
 <section class="hero hero-sm">
@@ -989,163 +993,7 @@
 </div>
 
 {% if analysis_result %}
-<!-- CSS for KPI Bar Animations and Detail Panels -->
-<style>
-    /* KPI Bar Animations */
-    .kpi-bar-fill {
-        width: 0;
-        transition: width 0.4s ease-out 0.2s;
-    }
-
-    .kpi-bar-container {
-        background: var(--rule-light) !important;
-    }
-
-    /* Desaturated bars for unreliable data */
-    .detail-row.hard-floor .kpi-bar-fill {
-        filter: grayscale(0.7) opacity(0.5);
-    }
-    .detail-row.hard-floor .kpi-bar-container {
-        opacity: 0.6;
-    }
-
-    /* Expand button icon rotation */
-    .expand-icon {
-        transition: transform 0.15s ease;
-    }
-    .player-group.expanded .expand-icon {
-        transform: rotate(90deg);
-    }
-
-    /* Detail panel styling */
-    .detail-panel {
-        border-top: 1px solid var(--rule);
-        background: var(--paper-inset);
-    }
-
-    /* Hover effect on player row */
-    .player-row:hover {
-        background-color: var(--paper-inset);
-    }
-
-    /* Best XI Drag-and-Drop Styles */
-    .xi-player-slot.dragging,
-    .bench-player-slot.dragging {
-        opacity: 0.5;
-        cursor: grabbing !important;
-    }
-
-    .xi-player-slot.drag-over,
-    .bench-player-slot.drag-over {
-        transform: translate(-50%, -50%) scale(1.1);
-        box-shadow: 0 0 15px rgba(61, 90, 69, 0.6);
-        z-index: 100;
-    }
-
-    .bench-player-slot.drag-over {
-        transform: scale(1.05);
-        box-shadow: 0 0 10px rgba(61, 90, 69, 0.6);
-    }
-
-    .xi-player-slot:hover,
-    .bench-player-slot:hover {
-        z-index: 50;
-    }
-
-    .pitch-container {
-        user-select: none;
-    }
-
-    /* Pitch position badges - cream for contrast against green pitch */
-    .pitch-container .player-badge,
-    .pitch-container .player-badge.bg-info,
-    .pitch-container .player-badge.bg-warning {
-        background-color: var(--paper) !important;
-        color: var(--ink) !important;
-        border: 1px solid var(--rule-strong);
-    }
-
-    /* Quality score update animation */
-    .quality-score-updated {
-        animation: scoreFlash 0.6s ease-out;
-    }
-
-    @keyframes scoreFlash {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.2); background-color: var(--verdict-average); }
-        100% { transform: scale(1); }
-    }
-
-    /* Swap indicator */
-    .swap-indicator {
-        position: fixed;
-        padding: 4px 8px;
-        background: rgba(61, 90, 69, 0.9);
-        color: white;
-        border-radius: var(--radius-sm);
-        font-size: 0.75rem;
-        pointer-events: none;
-        z-index: 1000;
-        display: none;
-    }
-
-    /* Methodology explainer chevron rotation */
-    #methodologyExplainer.collapse:not(.show) ~ .card-header .bi-chevron-down,
-    .card-header .collapsed .bi-chevron-down {
-        transform: rotate(0deg);
-        transition: transform 0.15s ease;
-    }
-    .card-header button:not(.collapsed) .bi-chevron-down {
-        transform: rotate(180deg);
-        transition: transform 0.15s ease;
-    }
-
-    /* Stat values should be monospace */
-    .badge.fs-6,
-    .kpi-tier {
-        font-family: var(--font-mono);
-        font-variant-numeric: tabular-nums;
-    }
-
-    /* Detail panel inner card */
-    .detail-panel .bg-white {
-        background: var(--paper-raised) !important;
-        border-color: var(--rule) !important;
-    }
-
-    /* Table header adjustments */
-    #squadTable th {
-        font-size: 0.8125rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.02em;
-        color: var(--ink-muted);
-    }
-
-    /* Quick stats numbers */
-    .card-body.bg-light h3 {
-        font-family: var(--font-mono);
-        font-variant-numeric: tabular-nums;
-    }
-
-    /* Out-of-position indicator */
-    .player-label.out-of-position {
-        border: 2px solid var(--verdict-poor) !important;
-    }
-
-    /* Bench and XI slot styling */
-    .bench-player-slot {
-        background: var(--paper-raised);
-        border-color: var(--rule) !important;
-    }
-
-    .bench-gap-slot {
-        border-color: var(--verdict-poor) !important;
-    }
-</style>
-
 <!-- Methodology Explainer Section -->
-{% if analysis_result %}
 <div class="container mt-5 mb-4">
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-light py-2">
@@ -1951,7 +1799,6 @@
         }
     });
 </script>
-{% endif %}
 
 <!-- Initialize Tom Select for styled dropdowns -->
 <script>

@@ -1,3 +1,4 @@
+import re
 from typing import List, Optional, Dict
 from models.squad_audit import Player
 from models.role_definitions import ROLES, RoleProfile
@@ -158,7 +159,6 @@ class RoleRecommendationEngine:
         for part in position_parts:
             # Extract base positions and lateral positions
             # Format: "POS (LATERAL)" or "POS/POS (LATERAL)" or just "POS"
-            import re
             match = re.match(r'([A-Z/]+)\s*\(([RLC]+)\)?', part)
 
             if match:
