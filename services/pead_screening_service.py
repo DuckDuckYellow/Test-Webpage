@@ -119,8 +119,11 @@ class PEADScreeningService:
             # Get recommended window for this report type
             recommended_window = cls.get_recommended_drift_window(report.period_type)
 
-            # Determine which decile to display
-            display_decile = sue_calc.sector_decile if use_sector_adjusted else sue_calc.global_decile
+            # Determine which decile to display (fall back to global if sector not available)
+            if use_sector_adjusted and sue_calc.sector_decile is not None:
+                display_decile = sue_calc.sector_decile
+            else:
+                display_decile = sue_calc.global_decile
 
             opportunities.append({
                 'ticker': stock.ticker,
