@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 
+{% block title %}PEAD Screener - Newton's Repository{% endblock %}
+
 {% block content %}
+<!-- Hero Section -->
 <section class="hero hero-sm">
-    <h1>PEAD Screener</h1>
-    <p>Post-Earnings Announcement Drift for FTSE 100/250</p>
+    <div class="container">
+        <h1 class="fw-bold mb-2">PEAD Screener</h1>
+        <p class="mb-0 opacity-75">Post-Earnings Announcement Drift for FTSE 100/250</p>
+    </div>
 </section>
 
 {% if not results %}

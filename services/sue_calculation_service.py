@@ -90,8 +90,10 @@ class SUECalculationService:
 
         # Step 4: Calculate raw SUE score
         # For very small stddev (consistent growth), prevent extreme values by capping
-        if forecast_error_stddev == 0:
-            # Perfect consistency - use sign of forecast error only
+        EPSILON = 1e-10  # Threshold for essentially-zero stddev
+
+        if forecast_error_stddev < EPSILON:
+            # Perfect or near-perfect consistency - use sign of forecast error only
             sue_score = 10.0 if forecast_error > 0 else -10.0 if forecast_error < 0 else 0.0
         else:
             sue_score = forecast_error / forecast_error_stddev

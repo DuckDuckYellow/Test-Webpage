@@ -110,8 +110,11 @@ class CSVParserService:
                                 except ValueError:
                                     errors.append(f"Row {row_num}: Invalid Fiscal Year End Month")
                                     continue
+                            elif col == 'Sector':
+                                # Sector is a string field
+                                stock_data[key] = str(row[col]).strip()
                             else:
-                                # Numeric columns
+                                # Numeric columns (Change in Receivables, etc.)
                                 try:
                                     stock_data[key] = float(row[col])
                                 except ValueError:
