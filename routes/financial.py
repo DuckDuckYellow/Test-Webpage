@@ -57,14 +57,25 @@ def pead_screener():
                 for error in errors:
                     flash(error, 'warning')
 
+            # Check if processing failed (None) vs succeeded with no results (empty list)
+            if results is None:
+                current_app.logger.error("Processing failed - results is None")
+                flash('Failed to process CSV file. Please check the format and try again.', 'danger')
+                return redirect(url_for('financial.pead_screener'))
+
             # If no results, redirect to upload form
-            if not results:
-                current_app.logger.warning("No results returned from screening")
-                flash('No valid data found in CSV file', 'danger')
+            if len(results) == 0:
+                current_app.logger.warning("No results returned from screening (empty list)")
+                flash('No valid data found in CSV file or no stocks matched the screening criteria', 'warning')
                 return redirect(url_for('financial.pead_screener'))
 
             # Calculate summary statistics
             current_app.logger.info(f"Successfully screened {len(results)} opportunities")
+            
+            # Log session state for debugging
+            batch_uuid = session.get('pead_batch_uuid')
+            current_app.logger.info(f"Session state: batch_uuid={batch_uuid}, permanent={session.permanent}")
+            
             strong_buy_count = sum(1 for r in results if r.get('recommendation') == 'STRONG_BUY')
             buy_count = sum(1 for r in results if r.get('recommendation') == 'BUY')
             high_quality_count = sum(1 for r in results if r.get('quality_score', 0) >= 70)

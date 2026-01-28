@@ -108,6 +108,14 @@ class PEADScreeningService:
         # Order by quality score descending (best opportunities first)
         query = query.order_by(SUECalculation.quality_score.desc())
 
+        # Debug logging
+        from flask import current_app
+        if current_app:
+            # Count total SUE calculations for this batch
+            total_sue = db.session.query(SUECalculation).filter_by(upload_batch_id=upload_batch_id).count()
+            current_app.logger.debug(f"Total SUE calculations in batch: {total_sue}")
+            current_app.logger.debug(f"Screening query filters: ftse_index={ftse_index}, min_sue_decile={min_sue_decile}, min_quality_score={min_quality_score}")
+
         # Execute query with limit
         results = query.limit(limit).all()
 

@@ -135,6 +135,14 @@ class PEADScreeningManager:
                 drift_window_days=default_drift_window
             )
 
+            # Log results for debugging
+            if results is None:
+                current_app.logger.error(f"Screening returned None for batch {batch.batch_uuid}")
+            elif len(results) == 0:
+                current_app.logger.warning(f"Screening returned empty list for batch {batch.batch_uuid}")
+            else:
+                current_app.logger.info(f"Screening returned {len(results)} opportunities for batch {batch.batch_uuid}")
+
             return results, errors
 
         except Exception as e:
@@ -449,10 +457,12 @@ class PEADScreeningManager:
         """
         # Only store in session if we're in a request context
         if has_request_context():
+            # Set session.permanent BEFORE storing data to ensure persistence
+            session.permanent = True
             session['pead_batch_uuid'] = batch_uuid
             session['pead_ftse_index'] = ftse_index
-            session.permanent = True
-            current_app.logger.info(f"Stored batch {batch_uuid} in session")
+            session.modified = True  # Explicitly mark session as modified
+            current_app.logger.info(f"Stored batch {batch_uuid} in session (permanent={session.permanent})")
         else:
             current_app.logger.info(f"Skipping session storage (no request context) for batch {batch_uuid}")
 
